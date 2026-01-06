@@ -3,9 +3,17 @@
 use Illuminate\Support\Facades\Route;
 use App\Models\Post;
 
-Route::get('/', function () {
+Route::get('/welcome', function () {
     return view('welcome');
 });
+
+Route::get('/', function () {
+    return view('home');
+});
+Route::get('/keuzedeel-info', function () {
+    return view('keuzedeel-info');
+});
+
 
 Route::get('/newposttest', function(){
 
