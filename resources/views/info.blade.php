@@ -30,14 +30,26 @@ class StatusHelper {
     public string $status;
     public int $max;
     public int $ingeschreven;
+
+    const MINIMUM_INSCHRIJVINGEN = 15;
+
     public function __construct(string $status, int $max = 0, int $ingeschreven = 0) {
-        $this->status = $status;
         $this->max = $max;
         $this->ingeschreven = $ingeschreven;
+
+        if ($this->ingeschreven >= $this->max) {
+            $this->status = 'geen_plek';
+        } elseif ($status === 'nog_plek' && $this->ingeschreven < self::MINIMUM_INSCHRIJVINGEN) {
+            $this->status = 'niet_genoeg';
+        } else {
+            $this->status = $status;
+        }
     }
+
     public function color(): string {
         return match($this->status) {
             'nog_plek' => 'bg-blue-300',
+            'niet_genoeg' => 'bg-orange-300',
             'afgerond' => 'bg-green-300',
             'keuze1' => 'bg-yellow-300',
             'keuze2' => 'bg-yellow-200',
@@ -45,9 +57,11 @@ class StatusHelper {
             default => 'bg-gray-300',
         };
     }
+
     public function textColor(): string {
         return match($this->status) {
             'nog_plek' => 'text-blue-900',
+            'niet_genoeg' => 'text-orange-900',
             'afgerond' => 'text-green-900',
             'keuze1' => 'text-yellow-900',
             'keuze2' => 'text-yellow-800',
@@ -55,12 +69,11 @@ class StatusHelper {
             default => 'text-gray-900',
         };
     }
+
     public function text(): string {
-        if ($this->status === 'nog_plek') {
-            $beschikbaar = $this->max - $this->ingeschreven;
-            return 'Nog ' . max(0, $beschikbaar) . ' plaatsen';
-        }
         return match($this->status) {
+            'nog_plek' => 'Nog ' . max(0, $this->max - $this->ingeschreven) . ' plaatsen',
+            'niet_genoeg' => 'Niet genoeg inschrijvingen!',
             'afgerond' => 'Afgerond',
             'keuze1' => '1e keus',
             'keuze2' => '2e keus',
@@ -82,15 +95,16 @@ class StatusHelper {
         <div class="flex gap-6">
             @foreach($delen as $index => $deel)
                 @php
+                    $ingeschreven = $deel->ingeschreven ?? 0;
                     $statusText = $deel->is_open ? 'nog_plek' : 'afgerond';
-                    $status = new StatusHelper($statusText, $deel->maximum_studenten, $deel->minimum_studenten);
+                    $status = new StatusHelper($statusText, $deel->maximum_studenten, $ingeschreven);
                 @endphp
                 <button
                     type="button"
                     class="w-40 rounded shadow {{ $status->color() }} flex flex-col items-center p-2 deel-btn {{ $index !== 0 ? 'opacity-60' : 'opacity-100' }}"
                     data-index="{{ $index }}"
                     data-max="{{ $deel->maximum_studenten }}"
-                    data-ingeschreven="{{ $deel->minimum_studenten }}"
+                    data-ingeschreven="{{ $ingeschreven }}"
                     data-description="{{ htmlspecialchars($deel->description) }}"
                 >
                     <div class="text-center font-semibold mb-2 {{ $status->textColor() }}">
@@ -109,7 +123,7 @@ class StatusHelper {
             </button>
             <div id="aantal-ingeschreven" class="border px-4 py-2 rounded font-semibold text-center w-48">
                 Aantal ingeschreven:<br>
-                <span>{{ $delen[0]->minimum_studenten ?? 0 }}</span>
+                <span>{{ $delen[0]->ingeschreven ?? 0 }}</span>
             </div>
         </div>
     </div>
@@ -119,7 +133,7 @@ class StatusHelper {
             {{ $keuzedeel->description }}
         </div>
         <div id="deel-beschrijving">
-            {{ $delen[0]->description }}
+            {{ $delen[0]->description ?? '' }}
         </div>
     </section>
 
@@ -134,23 +148,34 @@ class StatusHelper {
 
 </main>
 
+@php
+// Prepare plain arrays for JS
+$js_deelSuffixes = [];
+$js_aantalIngeschreven = [];
+$js_beschrijvingen = [];
+
+foreach ($delen as $i => $deel) {
+    $js_deelSuffixes[] = 'Deel ' . ($i + 1);
+    $js_aantalIngeschreven[] = $deel->ingeschreven ?? 0;
+    $js_beschrijvingen[] = $deel->description ?? '';
+}
+@endphp
+
 <script>
     const deelButtons = document.querySelectorAll('.deel-btn');
     const aantalEl = document.getElementById('aantal-ingeschreven').querySelector('span');
     const titelSpan = document.getElementById('huidig-deel-titel');
     const beschrijvingEl = document.getElementById('deel-beschrijving');
 
-    const deelSuffixes = @json($delen->map(fn($d, $i) => 'Deel ' . ($i + 1)));
-    const aantalIngeschreven = @json($delen->pluck('minimum_studenten'));
-    const beschrijvingen = @json($delen->pluck('description'));
+    const deelSuffixes = @json($js_deelSuffixes);
+    const aantalIngeschreven = @json($js_aantalIngeschreven);
+    const beschrijvingen = @json($js_beschrijvingen);
 
-    // helper om query param te lezen
     function getQueryParam(param) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(param);
     }
 
-    // Bepaal geselecteerd deel
     let selectedIndex = parseInt(getQueryParam('deel') ?? 1, 10) - 1;
     if (selectedIndex < 0 || selectedIndex >= deelButtons.length) {
         selectedIndex = 0;
@@ -170,16 +195,13 @@ class StatusHelper {
 
         currentIndex = idx;
 
-        // update URL zonder reload
         const url = new URL(window.location);
         url.searchParams.set('deel', idx + 1);
         window.history.replaceState({}, '', url);
     }
 
-    // initialiseer geselecteerd deel
     selectDeel(selectedIndex);
 
-    // klik events
     deelButtons.forEach((btn, idx) => {
         btn.addEventListener('click', () => {
             if (currentIndex === idx) return;
