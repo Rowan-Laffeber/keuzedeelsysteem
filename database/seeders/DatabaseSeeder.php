@@ -11,5 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             KeuzedeelSeeder::class,
         ]);
+        $this->call(UserSeeder::class);
+
     }
 }
