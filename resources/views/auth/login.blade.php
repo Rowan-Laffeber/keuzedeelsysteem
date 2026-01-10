@@ -7,23 +7,19 @@
 </head>
 <body class="bg-gray-100 font-sans">
 
-<header class="bg-white shadow mb-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16 items-center">
-            <div class="flex-shrink-0">
-                <img class="h-10 w-10" src="{{ asset('images/placeholder.png') }}" alt="Logo">
-            </div>
-            <div class="hidden md:flex space-x-6">
-                <a href="{{ route('home') }}" class="text-gray-700 hover:text-blue-600 font-medium">Home</a>
-                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Overzicht</a>
-                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Contact</a>
-            </div>
-        </div>
-    </div>
-</header>
+<main class="max-w-md mx-auto bg-white p-8 rounded shadow mt-12">
 
-<main class="max-w-md mx-auto bg-white p-8 rounded shadow">
     <h1 class="text-2xl font-bold mb-6 text-center">Inloggen</h1>
+
+    {{-- Test accounts info --}}
+    <div class="mb-6 bg-blue-100 text-blue-700 p-4">
+        <p class="font-semibold mb-2">Test accounts</p>
+        <ul class="space-y-1 text-sm">
+            <li><strong>Student</strong>: <code>student@student.nl</code> / <code>student</code></li>
+            <li><strong>Docent</strong>: <code>docent@docent.nl</code> / <code>docent</code></li>
+            <li><strong>Admin</strong>: <code>admin@admin.nl</code> / <code>admin</code></li>
+        </ul>
+    </div>
 
     @if(session('error'))
         <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">
