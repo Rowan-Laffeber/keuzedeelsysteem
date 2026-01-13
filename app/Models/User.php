@@ -10,43 +10,20 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    // 🟢 Gebruik UUID als primary key
     public $incrementing = false;
     protected $keyType = 'string';
 
-    /**
-     * Mass assignable attributes
-     */
-    protected $fillable = [
-        'id',      // UUID
-        'name',
-        'email',
-        'password',
-        'role',    // student/docent/admin
-    ];
+    protected $fillable = ['id', 'name', 'email', 'password', 'role'];
 
-    /**
-     * Hidden attributes
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
+    protected $hidden = ['password', 'remember_token'];
 
-    /**
-     * Attribute casting
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed', // Laravel automatisch hash
+            'password' => 'hashed',
         ];
     }
-
-    // =========================
-    // RELATIES
-    // =========================
 
     public function student()
     {
@@ -58,22 +35,7 @@ class User extends Authenticatable
         return $this->hasOne(Docent::class);
     }
 
-    // =========================
-    // ROLE HELPERS
-    // =========================
-
-    public function isStudent(): bool
-    {
-        return $this->role === 'student';
-    }
-
-    public function isDocent(): bool
-    {
-        return $this->role === 'docent';
-    }
-
-    public function isAdmin(): bool
-    {
-        return $this->role === 'admin';
-    }
+    public function isStudent(): bool { return $this->role === 'student'; }
+    public function isDocent(): bool { return $this->role === 'docent'; }
+    public function isAdmin(): bool { return $this->role === 'admin'; }
 }

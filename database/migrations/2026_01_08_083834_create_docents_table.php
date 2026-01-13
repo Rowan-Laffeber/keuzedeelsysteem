@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('docents', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->uuid('user_id')->unique(); // koppeling naar users
-            $table->string('afkorting')->unique(); // bv. DVR
+            $table->uuid('user_id')->unique();
+            $table->string('afkorting')->nullable();
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
@@ -23,4 +23,3 @@ return new class extends Migration
         Schema::dropIfExists('docents');
     }
 };
-

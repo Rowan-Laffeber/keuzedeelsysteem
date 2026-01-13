@@ -10,8 +10,10 @@ return new class extends Migration
     {
         Schema::create('students', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->uuid('user_id')->unique(); // koppeling naar users
+            $table->uuid('user_id')->unique();
             $table->string('studentnummer')->unique();
+            $table->string('opleidingsnummer');
+            $table->year('cohort_year');
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');

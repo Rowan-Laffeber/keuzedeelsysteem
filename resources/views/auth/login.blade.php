@@ -15,9 +15,9 @@
     <div class="mb-6 bg-blue-100 text-blue-700 p-4">
         <p class="font-semibold mb-2">Test accounts</p>
         <ul class="space-y-1 text-sm">
-            <li><strong>Student</strong>: <code>student@student.nl</code> / <code>student</code></li>
-            <li><strong>Docent</strong>: <code>docent@docent.nl</code> / <code>docent</code></li>
-            <li><strong>Admin</strong>: <code>admin@admin.nl</code> / <code>admin</code></li>
+            <li><strong>Student</strong>: <p>1234567@student.school.nl</p><p>password</p></li>
+            <li><strong>Docent</strong>: <p>docent@docent.nl</p><p>password</p></li>
+            <li><strong>Admin</strong>: <p>admin@admin.nl</p><p>password</p></li>
         </ul>
     </div>
 
