@@ -23,12 +23,11 @@ class UserSeeder extends Seeder
 
         DB::transaction(function () use ($csvPath) {
 
-            // 🔹 FULL RESET
+            // FULL RESET: students + related users
             Student::truncate();
             User::where('role', 'student')->delete();
 
             $handle = fopen($csvPath, 'r');
-
             if (!$handle) {
                 $this->command->error("Unable to open CSV file: {$csvPath}");
                 return;
@@ -39,9 +38,10 @@ class UserSeeder extends Seeder
             $delimiter = str_contains($firstLine, ';') ? ';' : ',';
             rewind($handle);
 
-            // Skip any rows until the header row with "student"
+            // Skip rows until we find header containing 'student'
             while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
-                if (in_array('student', $row) || in_array('student', array_map('strtolower', $row))) {
+                $rowLower = array_map('strtolower', $row);
+                if (in_array('student', $rowLower)) {
                     $header = $row;
                     break;
                 }
@@ -55,8 +55,7 @@ class UserSeeder extends Seeder
 
             // Import each student row
             while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
-
-                if (!$row || count($row) < 4) continue;
+                if (!$row || count($row) < 4) continue; // skip empty rows
 
                 $row = array_map('trim', $row);
                 $data = array_combine($header, $row);
@@ -68,7 +67,6 @@ class UserSeeder extends Seeder
 
                 if (empty($studentnummer) || empty($name)) continue;
 
-                // Cohort year: take the first 4 digits of something like "2022/2023"
                 $cohortYear = intval(substr($cohortYearRaw, 0, 4));
 
                 $user = User::create([
