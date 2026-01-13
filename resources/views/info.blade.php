@@ -5,7 +5,8 @@
 @section('content')
 
 <h1 id="hoofdtitel" class="text-3xl font-bold mb-4">
-    {{ $keuzedeel->title }} - <span id="huidig-deel-titel">Deel 1</span>
+    {{ $keuzedeel->title }} -
+    <span id="huidig-deel-titel">{{ $delen[0]->id ?? '' }}</span>
 </h1>
 
 @php
@@ -69,26 +70,26 @@ class StatusHelper {
 
 <div class="flex items-start gap-6 mb-6">
 
-    <div class="flex gap-6">
+    <div class="flex gap-6 flex-wrap">
         @foreach($delen as $index => $deel)
             @php
                 $ingeschreven = $deel->ingeschreven ?? 0;
                 $statusText = $deel->is_open ? 'nog_plek' : 'afgerond';
                 $status = new StatusHelper($statusText, $deel->maximum_studenten, $ingeschreven);
             @endphp
+
             <button
                 type="button"
-                class="w-40 rounded shadow {{ $status->color() }} flex flex-col items-center p-2 deel-btn {{ $index !== 0 ? 'opacity-60' : 'opacity-100' }}"
+                class="w-44 rounded shadow {{ $status->color() }} flex flex-col items-center p-2 deel-btn {{ $index !== 0 ? 'opacity-60' : 'opacity-100' }}"
+                data-id="{{ $deel->id }}"
                 data-index="{{ $index }}"
-                data-max="{{ $deel->maximum_studenten }}"
-                data-ingeschreven="{{ $ingeschreven }}"
-                data-description="{{ htmlspecialchars($deel->description) }}"
             >
                 <div class="text-center font-semibold mb-2 {{ $status->textColor() }}">
                     {{ $status->text() }}
                 </div>
+
                 <div class="bg-white p-4 rounded w-full text-center font-bold text-lg">
-                    Deel {{ $index + 1 }}
+                    {{ $deel->id }}
                 </div>
             </button>
         @endforeach
@@ -99,13 +100,12 @@ class StatusHelper {
             Aantal ingeschreven:<br>
             <span>{{ $delen[0]->ingeschreven ?? 0 }}</span>
         </div>
-        
     </div>
 
 </div>
 
 <section class="mb-4 p-4 border rounded bg-gray-50 text-gray-800">
-    <div>
+    <div class="mb-2">
         {{ $keuzedeel->description }}
     </div>
     <div id="deel-beschrijving">
@@ -134,12 +134,12 @@ class StatusHelper {
 </div>
 
 @php
-$js_deelSuffixes = [];
+$js_ids = [];
 $js_aantalIngeschreven = [];
 $js_beschrijvingen = [];
 
-foreach ($delen as $i => $deel) {
-    $js_deelSuffixes[] = 'Deel ' . ($i + 1);
+foreach ($delen as $deel) {
+    $js_ids[] = $deel->id;
     $js_aantalIngeschreven[] = $deel->ingeschreven ?? 0;
     $js_beschrijvingen[] = $deel->description ?? '';
 }
@@ -147,12 +147,12 @@ foreach ($delen as $i => $deel) {
 
 <script>
 const deelButtons = document.querySelectorAll('.deel-btn');
-const aantalEl = document.getElementById('aantal-ingeschreven').querySelector('span');
+const aantalEl = document.querySelector('#aantal-ingeschreven span');
 const titelSpan = document.getElementById('huidig-deel-titel');
 const beschrijvingEl = document.getElementById('deel-beschrijving');
 
-const deelSuffixes = @json($js_deelSuffixes);
-const aantalIngeschreven = @json($js_aantalIngeschreven);
+const ids = @json($js_ids);
+const aantallen = @json($js_aantalIngeschreven);
 const beschrijvingen = @json($js_beschrijvingen);
 
 function getQueryParam(param) {
@@ -160,32 +160,34 @@ function getQueryParam(param) {
     return urlParams.get(param);
 }
 
-let selectedIndex = parseInt(getQueryParam('deel') ?? 1, 10) - 1;
-if (selectedIndex < 0 || selectedIndex >= deelButtons.length) selectedIndex = 0;
+function selectDeelById(id) {
+    deelButtons.forEach((btn, i) => {
+        const active = btn.dataset.id === id;
+        btn.classList.toggle('opacity-100', active);
+        btn.classList.toggle('opacity-60', !active);
 
-let currentIndex = selectedIndex;
-
-function selectDeel(idx) {
-    deelButtons.forEach((b,i) => {
-        b.classList.toggle('opacity-100', i === idx);
-        b.classList.toggle('opacity-60', i !== idx);
+        if (active) {
+            aantalEl.textContent = aantallen[i] ?? 0;
+            titelSpan.textContent = ids[i] ?? '';
+            beschrijvingEl.textContent = beschrijvingen[i] ?? '';
+        }
     });
-    aantalEl.textContent = aantalIngeschreven[idx] ?? 0;
-    titelSpan.textContent = deelSuffixes[idx] ?? '';
-    beschrijvingEl.textContent = beschrijvingen[idx] ?? '';
 
-    currentIndex = idx;
     const url = new URL(window.location);
-    url.searchParams.set('deel', idx + 1);
+    url.searchParams.set('deel', id);
     window.history.replaceState({}, '', url);
 }
 
-selectDeel(selectedIndex);
+const initialDeel =
+    getQueryParam('deel') && ids.includes(getQueryParam('deel'))
+        ? getQueryParam('deel')
+        : ids[0];
 
-deelButtons.forEach((btn, idx) => {
+selectDeelById(initialDeel);
+
+deelButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-        if (currentIndex === idx) return;
-        selectDeel(idx);
+        selectDeelById(btn.dataset.id);
     });
 });
 </script>

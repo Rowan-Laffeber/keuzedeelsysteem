@@ -6,7 +6,9 @@
             </div>
             <div class="hidden md:flex space-x-6">
                 <a href="{{ route('home') }}" class="text-gray-700 hover:text-blue-600 font-medium">Home</a>
-                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Overzicht</a>
+                @if(auth()->user()->role === 'admin')
+                <a href="{{ route('create') }}" class="text-gray-700 hover:text-blue-600 font-medium">Creëer keuzedeel</a>
+                @endif
                 <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Contact</a>
             </div>
             <div class="flex items-center space-x-4">
