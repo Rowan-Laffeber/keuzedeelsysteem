@@ -53,7 +53,7 @@
 </section>
 
 <div class="flex justify-between mt-4 space-x-4">
-    @if(auth()->user()->role === 'student')
+    <!-- @if(auth()->user()->role === 'student')
     <form method="POST" action="{{ route('inschrijven.store') }}" id="inschrijf-form">
         @csrf
         <input type="hidden" name="keuzedeel_id" id="keuzedeel_id_input" value="{{ $delen[0]->id }}">
@@ -66,7 +66,13 @@
             Schrijf in
         </button>
     </form>
+    @endif -->
+    @if(auth()->user()->role === 'student')
+        <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
+            Schrijf in
+        </button>
     @endif
+
 
     @if(in_array(auth()->user()->role, ['admin','docent']))
         <button class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded">
@@ -112,7 +118,7 @@ function getQueryParam(param) {
 }
 
 function selectDeelById(id) {
-    document.getElementById('keuzedeel_id_input').value = id;
+    // document.getElementById('keuzedeel_id_input').value = id;
      deelButtons.forEach((btn, i) => {
         const active = btn.dataset.id === id;
         btn.classList.toggle('opacity-100', active);
@@ -128,14 +134,14 @@ function selectDeelById(id) {
    
 
     const url = new URL(window.location);
-    url.searchParams.set('deel', id);
+    url.searchParams.set('id', id);
     window.history.replaceState({}, '', url);
 }
 
 // Pick initial deel from query param or default to first
 const initialDeel =
-    getQueryParam('deel') && ids.includes(getQueryParam('deel'))
-        ? getQueryParam('deel')
+    getQueryParam('id') && ids.includes(getQueryParam('id'))
+        ? getQueryParam('id')
         : ids[0];
 
 selectDeelById(initialDeel);
