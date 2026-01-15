@@ -22,9 +22,7 @@ Route::middleware('auth')->group(function () {
 
     // Home & keuzedeel info
     Route::get('/', [HomeController::class, 'home'])->name('home');
-    Route::get('/keuzedeel/{keuzedeel}', [HomeController::class, 'info'])->name('keuzedeel.info');
-
-    // Student inscriptions
+    Route::get('/keuzedeel/{keuzedeel/{id}', [HomeController::class, 'info'])->name('keuzedeel.info');
     Route::post('/inschrijven', [InschrijvingController::class, 'store'])->name('inschrijven.store');
 
     // test routes
@@ -34,3 +32,4 @@ Route::middleware('auth')->group(function () {
     Route::get('/create', [KeuzedeelController::class, 'create'])->name('create');
     Route::post('/keuzedeel/aanmaken', [KeuzedeelController::class, 'store'])->name('keuzedeel.store');
 });
+

@@ -24,4 +24,28 @@ return new class extends Migration
     {
         Schema::dropIfExists('students');
     }
+        public function inschrijven($keuzedeelId)
+{
+    $student = auth()->user()->student;
+    $keuzedeel = Keuzedeel::findOrFail($keuzedeelId);
+
+
+    if ($student->keuzedelen()
+        ->where('keuzedeel_id', $keuzedeelId)
+        ->exists()) {
+        return back()->with('error', 'Je bent al ingeschreven.');
+    }
+
+   
+    if ($keuzedeel->students()->count() >= $keuzedeel->max_inschrijvingen) {
+        return back()->with('error', 'Dit keuzedeel zit vol.');
+    }
+
+    
+    $student->keuzedelen()->attach($keuzedeelId);
+
+    return back()->with('success', 'Succesvol ingeschreven!');
+}
 };
+
+
