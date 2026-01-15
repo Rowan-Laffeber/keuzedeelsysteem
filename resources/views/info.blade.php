@@ -4,79 +4,24 @@
 
 @section('content')
 
+@php
+    // Redirect student if no eligible subdelen
+    if(auth()->user()->role === 'student' && $delen->isEmpty()) {
+        header("Location: " . route('home'));
+        exit;
+    }
+@endphp
+
 <h1 id="hoofdtitel" class="text-3xl font-bold mb-4">
     {{ $keuzedeel->title }} -
     <span id="huidig-deel-titel">{{ $delen[0]->id ?? '' }}</span>
 </h1>
 
-@php
-class StatusHelper {
-    public string $status;
-    public int $max;
-    public int $ingeschreven;
-
-    const MINIMUM_INSCHRIJVINGEN = 15;
-
-    public function __construct(string $status, int $max = 0, int $ingeschreven = 0) {
-        $this->max = $max;
-        $this->ingeschreven = $ingeschreven;
-
-        if ($this->ingeschreven >= $this->max) {
-            $this->status = 'geen_plek';
-        } elseif ($status === 'nog_plek' && $this->ingeschreven < self::MINIMUM_INSCHRIJVINGEN) {
-            $this->status = 'niet_genoeg';
-        } else {
-            $this->status = $status;
-        }
-    }
-
-    public function color(): string {
-        return match($this->status) {
-            'nog_plek' => 'bg-blue-300',
-            'niet_genoeg' => 'bg-orange-300',
-            'afgerond' => 'bg-green-300',
-            'keuze1' => 'bg-yellow-300',
-            'keuze2' => 'bg-yellow-200',
-            'geen_plek' => 'bg-red-300',
-            default => 'bg-gray-300',
-        };
-    }
-
-    public function textColor(): string {
-        return match($this->status) {
-            'nog_plek' => 'text-blue-900',
-            'niet_genoeg' => 'text-orange-900',
-            'afgerond' => 'text-green-900',
-            'keuze1' => 'text-yellow-900',
-            'keuze2' => 'text-yellow-800',
-            'geen_plek' => 'text-red-900',
-            default => 'text-gray-900',
-        };
-    }
-
-    public function text(): string {
-        return match($this->status) {
-            'nog_plek' => 'Nog ' . max(0, $this->max - $this->ingeschreven) . ' plaatsen',
-            'niet_genoeg' => 'Niet genoeg inschrijvingen!',
-            'afgerond' => 'Afgerond',
-            'keuze1' => '1e keus',
-            'keuze2' => '2e keus',
-            'geen_plek' => 'Geen plaats',
-            default => 'Onbekend',
-        };
-    }
-}
-@endphp
-
 <div class="flex items-start gap-6 mb-6">
 
     <div class="flex gap-6 flex-wrap">
         @foreach($delen as $index => $deel)
-            @php
-                $ingeschreven = $deel->ingeschreven ?? 0;
-                $statusText = $deel->is_open ? 'nog_plek' : 'afgerond';
-                $status = new StatusHelper($statusText, $deel->maximum_studenten, $ingeschreven);
-            @endphp
+            @php $status = $deel->status_helper; @endphp
 
             <button
                 type="button"
@@ -105,12 +50,8 @@ class StatusHelper {
 </div>
 
 <section class="mb-4 p-4 border rounded bg-gray-50 text-gray-800">
-    <div class="mb-2">
-        {{ $keuzedeel->description }}
-    </div>
-    <div id="deel-beschrijving">
-        {{ $delen[0]->description ?? '' }}
-    </div>
+    <div class="mb-2">{{ $keuzedeel->description }}</div>
+    <div id="deel-beschrijving">{{ $delen[0]->description ?? '' }}</div>
 </section>
 
 <div class="flex justify-between mt-4 space-x-4">
@@ -130,7 +71,7 @@ class StatusHelper {
         <button class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded">
             Actief status aanpassen
         </button>
-    @endif
+    @endif  
 </div>
 
 @php
@@ -147,18 +88,13 @@ foreach ($delen as $deel) {
 
 <script>
 const deelButtons = document.querySelectorAll('.deel-btn');
-const aantalEl = document.querySelector('#aantal-ingeschreven span');
+const signedUpDisplay = document.querySelector('#aantal-ingeschreven span');
 const titelSpan = document.getElementById('huidig-deel-titel');
-const beschrijvingEl = document.getElementById('deel-beschrijving');
+const descriptionSection = document.getElementById('deel-beschrijving');
 
 const ids = @json($js_ids);
-const aantallen = @json($js_aantalIngeschreven);
+const aantalIngeschreven = @json($js_aantalIngeschreven);
 const beschrijvingen = @json($js_beschrijvingen);
-
-function getQueryParam(param) {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(param);
-}
 
 function selectDeelById(id) {
     deelButtons.forEach((btn, i) => {
@@ -167,9 +103,9 @@ function selectDeelById(id) {
         btn.classList.toggle('opacity-60', !active);
 
         if (active) {
-            aantalEl.textContent = aantallen[i] ?? 0;
+            signedUpDisplay.textContent = aantalIngeschreven[i] ?? 0;
             titelSpan.textContent = ids[i] ?? '';
-            beschrijvingEl.textContent = beschrijvingen[i] ?? '';
+            descriptionSection.textContent = beschrijvingen[i] ?? '';
         }
     });
 
@@ -178,18 +114,13 @@ function selectDeelById(id) {
     window.history.replaceState({}, '', url);
 }
 
-const initialDeel =
-    getQueryParam('deel') && ids.includes(getQueryParam('deel'))
-        ? getQueryParam('deel')
-        : ids[0];
-
+// Pick initial deel from query param or default to first
+const urlParams = new URLSearchParams(window.location.search);
+const initialDeel = ids.includes(urlParams.get('deel')) ? urlParams.get('deel') : ids[0];
 selectDeelById(initialDeel);
 
-deelButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-        selectDeelById(btn.dataset.id);
-    });
-});
+// Add click listeners to switch subdelen
+deelButtons.forEach(btn => btn.addEventListener('click', () => selectDeelById(btn.dataset.id)));
 </script>
 
 @endsection

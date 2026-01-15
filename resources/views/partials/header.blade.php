@@ -13,7 +13,13 @@
             </div>
             <div class="flex items-center space-x-4">
                 @auth
-                    <span class="text-gray-700 font-medium">{{ auth()->user()->name }} ({{ auth()->user()->role }})</span>
+                    <span class="text-gray-700 font-medium">
+                        {{ auth()->user()->name }} 
+                        ({{ auth()->user()->role }})
+                        @if(auth()->user()->role === 'student' && auth()->user()->student)
+                            ({{ auth()->user()->student->opleidingsnummer }})
+                        @endif
+                </span>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>

@@ -34,7 +34,7 @@
             <select name="parent_id" id="parent_id" class="w-full border rounded px-3 py-2">
                 <option value="">Maak een nieuw hoofdkeuzedeel aan</option>
                 @foreach($parents as $parent)
-                    <option value="{{ $parent->id }}" data-title="{{ $parent->title }}"
+                    <option value="{{ $parent->id }}" data-title="{{ $parent->title }}" data-max-type="{{ $parent->parent_max_type }}"
                         {{ old('parent_id') == $parent->id ? 'selected' : '' }}>
                         {{ $parent->title }}
                     </option>
@@ -74,19 +74,17 @@
                       class="w-full border rounded px-3 py-2">{{ old('description') }}</textarea>
         </div>
 
-        {{-- Parent max students --}}
+        {{-- Max inschrijvingen type --}}
         <div>
-            <label for="parent_max" class="block font-medium mb-1">Max studenten voor nieuwe hoofdkeuzedeel</label>
-            <input type="number" name="parent_max" id="parent_max" value="{{ old('parent_max', 30) }}"
-                   class="w-full border rounded px-3 py-2" min="1" max="100">
-            <p class="text-sm text-gray-500">Alleen relevant als er geen hoofdkeuzedeel wordt geselecteerd.</p>
-        </div>
-
-        {{-- Deel max students --}}
-        <div>
-            <label for="deel_max" class="block font-medium mb-1">Max studenten voor dit deel</label>
-            <input type="number" name="deel_max" id="deel_max" value="{{ old('deel_max', 30) }}"
-                   class="w-full border rounded px-3 py-2" min="1" max="100" required>
+            <label for="parent_max_type" class="block font-medium mb-1">Max inschrijvingen</label>
+            <select name="parent_max_type" id="parent_max_type" class="w-full border rounded px-3 py-2">
+                <option value="subdeel" {{ old('parent_max_type') === 'subdeel' ? 'selected' : '' }}>
+                    Elk subdeel max 30 inschrijvingen
+                </option>
+                <option value="parent" {{ old('parent_max_type') === 'parent' ? 'selected' : '' }}>
+                    Hoofdkeuzedeel max 30, verdeeld over subdelen
+                </option>
+            </select>
         </div>
 
         {{-- Start and end inschrijving --}}
@@ -147,22 +145,36 @@ window.addEventListener('DOMContentLoaded', () => {
     // Parent selection -> autofill title & lock
     const parentSelect = document.getElementById('parent_id');
     const titleInput = document.getElementById('title');
+    const maxTypeSelect = document.getElementById('parent_max_type');
 
-    const updateTitle = () => {
+    const updateParentLogic = () => {
         const selectedOption = parentSelect.options[parentSelect.selectedIndex];
+
         if (selectedOption.value !== "") {
+            // Autofill title
             titleInput.value = selectedOption.dataset.title;
             titleInput.readOnly = true;
             titleInput.classList.add('bg-gray-100');
+
+            // Set maxType to parent’s saved type and disable dropdown
+            const parentType = selectedOption.dataset.maxType || 'subdeel';
+            maxTypeSelect.value = parentType;
+            maxTypeSelect.disabled = true;
+            maxTypeSelect.classList.add('bg-gray-100');
         } else {
+            // Creating new parent
             titleInput.readOnly = false;
             titleInput.classList.remove('bg-gray-100');
-            titleInput.value = "{{ old('title') }}"; // restore old input if exists
+            titleInput.value = "{{ old('title') }}";
+
+            maxTypeSelect.disabled = false;
+            maxTypeSelect.classList.remove('bg-gray-100');
+            maxTypeSelect.value = "{{ old('parent_max_type', 'subdeel') }}";
         }
     };
 
-    parentSelect.addEventListener('change', updateTitle);
-    updateTitle();
+    parentSelect.addEventListener('change', updateParentLogic);
+    updateParentLogic();
 });
 </script>
 @endsection

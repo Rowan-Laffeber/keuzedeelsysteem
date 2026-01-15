@@ -12,13 +12,15 @@ return new class extends Migration
             $table->uuid('id')->primary();
 
             $table->string('title');
-            $table->text('description');
+            $table->text('description')->nullable();
 
             $table->boolean('actief')->default(true);
             $table->boolean('is_open')->default(true);
 
             $table->integer('minimum_studenten')->default(15);
-            $table->integer('maximum_studenten')->default(30);
+            $table->integer('maximum_studenten')->nullable();
+
+            $table->enum('parent_max_type', ['parent','subdeel'])->default('subdeel');
 
             $table->dateTime('start_inschrijving');
             $table->dateTime('eind_inschrijving');

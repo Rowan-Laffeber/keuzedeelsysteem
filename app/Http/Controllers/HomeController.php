@@ -26,13 +26,13 @@ class HomeController extends Controller
         $student = Auth::user()?->student;
         $studentInschrijving = null;
 
-        if ($student) {
-            $studentInschrijving = Inschrijving::where('student_id', $student->id)
-                ->where(function ($q) use ($keuzedeel) {
-                    $q->where('eerste_keuze_keuzedeel_id', $keuzedeel->id)
-                      ->orWhere('tweede_keuze_keuzedeel_id', $keuzedeel->id);
-                })->first();
-        }
+        // if ($student) {
+        //     $studentInschrijving = Inschrijving::where('student_id', $student->id)
+        //         ->where(function ($q) use ($keuzedeel) {
+        //             $q->where('eerste_keuze_keuzedeel_id', $keuzedeel->id)
+        //               ->orWhere('tweede_keuze_keuzedeel_id', $keuzedeel->id);
+        //         })->first();
+        // }
 
         return view('info', compact('keuzedeel', 'delen', 'studentInschrijving'));
     }
