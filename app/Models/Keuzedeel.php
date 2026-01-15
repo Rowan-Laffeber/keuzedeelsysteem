@@ -57,4 +57,26 @@ class Keuzedeel extends Model
     {
         return $this->belongsTo(self::class, 'parent_id');
     }
+
+    /**
+     * Scope om keuzedelen te filteren op basis van opleidingsnummer prefix van de student.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string|null $opleidingPrefix Eerste 5 karakters van opleidingsnummer
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeForStudentOpleiding($query, ?string $opleidingPrefix)
+    {
+        // Als geen prefix is gegeven, geef alles terug
+        if (!$opleidingPrefix) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($opleidingPrefix) {
+            // Child keuzedelen met ID beginnend met prefix + K
+            $q->where('id', 'like', $opleidingPrefix . 'K%')
+                // Of kind ID beginnend met alleen K (voor iedereen)
+                ->orWhere('id', 'like', 'K%');
+        });
+    }
 }
