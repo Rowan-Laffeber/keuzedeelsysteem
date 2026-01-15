@@ -5,7 +5,6 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\KeuzedeelController;
 use App\Http\Controllers\InschrijvingController;
 use App\Http\Controllers\Auth\LoginController;
-use App\Models\Post;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,13 +29,6 @@ Route::middleware('auth')->group(function () {
 
     // test routes
     Route::get('/homeCOPYFORCONCEPT', fn() => view('homeCOPYFORCONCEPT'));
-    Route::get('/newposttest', function() {
-        $post = new Post();
-        $post->title = "Mijn titel";
-        $post->body = "Dit is de inhoud";
-        $post->save();
-        return "done";
-    });
 
     // --- Keuzedeel creation routes ---
     Route::get('/create', [KeuzedeelController::class, 'create'])->name('create');
