@@ -53,21 +53,26 @@
 </section>
 
 <div class="flex justify-between mt-4 space-x-4">
-@if(auth()->user()->role === 'student')
-<form method="POST" action="{{ route('inschrijven.store') }}" id="inschrijf-form">
-    @csrf
-    <input type="hidden" name="keuzedeel_id" id="keuzedeel_id_input" value="{{ $delen[0]->id }}">
-    <button
-        type="submit"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded
-               {{ ($delen[0]->ingeschreven ?? 0) >= $delen[0]->maximum_studenten ? 'opacity-50 cursor-not-allowed' : '' }}"
-        {{ ($delen[0]->ingeschreven ?? 0) >= $delen[0]->maximum_studenten ? 'disabled' : '' }}
-    >
-        Schrijf in
-    </button>
-</form>
-@endif
+    @if(auth()->user()->role === 'student')
+    <form method="POST" action="{{ route('inschrijven.store') }}" id="inschrijf-form">
+        @csrf
+        <input type="hidden" name="keuzedeel_id" id="keuzedeel_id_input" value="{{ $delen[0]->id }}">
+        <button
+            type="submit"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded
+                {{ ($delen[0]->ingeschreven ?? 0) >= $delen[0]->maximum_studenten ? 'opacity-50 cursor-not-allowed' : '' }}"
+            {{ ($delen[0]->ingeschreven ?? 0) >= $delen[0]->maximum_studenten ? 'disabled' : '' }}
+        >
+            Schrijf in
+        </button>
+    </form>
+    @endif
 
+    @if(in_array(auth()->user()->role, ['admin','docent']))
+        <button class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded">
+            Pas info aan
+        </button>
+    @endif
 
 
     @if(auth()->user()->role === 'admin')
