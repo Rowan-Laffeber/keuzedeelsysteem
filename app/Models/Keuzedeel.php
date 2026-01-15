@@ -63,6 +63,12 @@ class Keuzedeel extends Model
         return $this->belongsToMany(Keuzedeel::class);
     }
     
+    public function students()
+    {
+        return $this->belongsToMany(Student::class, 'keuzedeel_student')
+            ->withTimestamps();
+    }
+    
     /**
      * Scope om keuzedelen te filteren op basis van opleidingsnummer prefix van de student.
      *

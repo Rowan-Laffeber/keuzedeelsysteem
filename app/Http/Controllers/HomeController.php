@@ -37,6 +37,20 @@ class HomeController extends Controller
         return view('home', compact('parents'));
     }
 
+    public function profile()
+    {
+        $user = Auth::user();
+        
+        if ($user->role !== 'student') {
+            return redirect()->route('home')->with('error', 'Alleen studenten hebben een profiel pagina.');
+        }
+
+        $student = $user->student;
+        $ingeschrevenKeuzedelen = $student->keuzedelen()->with('parent')->get();
+
+        return view('profile', compact('student', 'ingeschrevenKeuzedelen'));
+    }
+
     public function info(Keuzedeel $keuzedeel)
     {
         $user = Auth::user();
@@ -59,9 +73,13 @@ class HomeController extends Controller
             ->orderBy('volgorde')
             ->get();
 
-        // Inschrijving check
-        $studentInschrijving = null;
+        // Check enrollment status for each deel
+        foreach ($delen as $deel) {
+            $deel->is_ingeschreven = $student->keuzedelen()
+                ->where('keuzedeel_id', $deel->id)
+                ->exists();
+        }
 
-        return view('info', compact('keuzedeel', 'delen', 'studentInschrijving'));
+        return view('info', compact('keuzedeel', 'delen'));
     }
 }

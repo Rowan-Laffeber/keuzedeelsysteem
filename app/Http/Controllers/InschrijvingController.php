@@ -7,22 +7,20 @@ use Illuminate\Http\Request;
 
 class InschrijvingController extends Controller
 {
-    public function inschrijven($keuzedeelId)
+    public function store(Request $request)
     {
-        $student = auth()->user();
+        $keuzedeelId = $request->input('keuzedeel_id');
+        $student = auth()->user()->student;
         $keuzedeel = Keuzedeel::findOrFail($keuzedeelId);
 
-     
         if ($student->keuzedelen()->where('keuzedeel_id', $keuzedeelId)->exists()) {
             return back()->with('error', 'Je bent al ingeschreven.');
         }
 
-        
-        if ($keuzedeel->students()->count() >= $keuzedeel->max_inschrijvingen) {
+        if ($keuzedeel->students()->count() >= $keuzedeel->maximum_studenten) {
             return back()->with('error', 'Maximum aantal inschrijvingen bereikt.');
         }
 
-        
         $student->keuzedelen()->attach($keuzedeelId);
 
         return back()->with('success', 'Succesvol ingeschreven!');

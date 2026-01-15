@@ -16,8 +16,9 @@ class Student extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function inschrijvingen()
+    public function keuzedelen()
     {
-        return $this->hasMany(Inschrijving::class);
+        return $this->belongsToMany(Keuzedeel::class, 'keuzedeel_student')
+            ->withTimestamps();
     }
 }
