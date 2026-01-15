@@ -4,14 +4,6 @@
 
 @section('content')
 
-@php
-    // Redirect student if no eligible subdelen
-    if(auth()->user()->role === 'student' && $delen->isEmpty()) {
-        header("Location: " . route('home'));
-        exit;
-    }
-@endphp
-
 <h1 id="hoofdtitel" class="text-3xl font-bold mb-4">
     {{ $keuzedeel->title }} -
     <span id="huidig-deel-titel">{{ $delen[0]->id ?? '' }}</span>
@@ -21,7 +13,9 @@
 
     <div class="flex gap-6 flex-wrap">
         @foreach($delen as $index => $deel)
-            @php $status = $deel->status_helper; @endphp
+            @php
+                $status = $deel->status_helper;
+            @endphp
 
             <button
                 type="button"
@@ -50,8 +44,12 @@
 </div>
 
 <section class="mb-4 p-4 border rounded bg-gray-50 text-gray-800">
-    <div class="mb-2">{{ $keuzedeel->description }}</div>
-    <div id="deel-beschrijving">{{ $delen[0]->description ?? '' }}</div>
+    <div class="mb-2">
+        {{ $keuzedeel->description }}
+    </div>
+    <div id="deel-beschrijving">
+        {{ $delen[0]->description ?? '' }}
+    </div>
 </section>
 
 <div class="flex justify-between mt-4 space-x-4">
@@ -96,6 +94,11 @@ const ids = @json($js_ids);
 const aantalIngeschreven = @json($js_aantalIngeschreven);
 const beschrijvingen = @json($js_beschrijvingen);
 
+function getQueryParam(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+}
+
 function selectDeelById(id) {
     deelButtons.forEach((btn, i) => {
         const active = btn.dataset.id === id;
@@ -115,12 +118,20 @@ function selectDeelById(id) {
 }
 
 // Pick initial deel from query param or default to first
-const urlParams = new URLSearchParams(window.location.search);
-const initialDeel = ids.includes(urlParams.get('deel')) ? urlParams.get('deel') : ids[0];
+const initialDeel =
+    getQueryParam('deel') && ids.includes(getQueryParam('deel'))
+        ? getQueryParam('deel')
+        : ids[0];
+
 selectDeelById(initialDeel);
 
 // Add click listeners to switch subdelen
-deelButtons.forEach(btn => btn.addEventListener('click', () => selectDeelById(btn.dataset.id)));
+deelButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        selectDeelById(btn.dataset.id);
+    });
+});
 </script>
+
 
 @endsection

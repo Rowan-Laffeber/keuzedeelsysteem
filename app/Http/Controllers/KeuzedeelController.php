@@ -15,7 +15,7 @@ class KeuzedeelController extends Controller
     {
         $user = auth()->user();
         if ($user->role !== 'admin') {
-            return redirect()->route('home');
+            return redirect()->route('home')->with('error', 'Alleen admins mogen deze pagina bekijken.');
         }
 
         $parents = Keuzedeel::whereNull('parent_id')->get();
@@ -129,28 +129,6 @@ class KeuzedeelController extends Controller
             'eind_inschrijving' => $request->eind_inschrijving,
         ]);
 
-        return redirect()->route('home');
+        return redirect()->route('home')->with('success', 'Keuzedeel succesvol aangemaakt!');
     }
-
-    protected function filterKeuzedelenForStudent($keuzedelen)
-    {
-        $user = auth()->user();
-
-        // Only apply for students
-        if (!$user || $user->role !== 'student') {
-            return $keuzedelen;
-        }
-
-        // Filter subdelen for each parent
-        return $keuzedelen->filter(function ($parent) use ($user) {
-            // Keep parent only if it has at least one eligible subdeel
-            $eligibleDelen = $parent->delen->filter(fn($deel) => $deel->isEligibleForStudent($user));
-
-            // Attach only eligible subdelen to the parent for use in Blade
-            $parent->eligibleDelen = $eligibleDelen;
-
-            return $eligibleDelen->isNotEmpty();
-        });
-    }
-
 }

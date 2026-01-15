@@ -22,13 +22,16 @@ class Keuzedeel extends Model
         'is_open',
         'minimum_studenten',
         'maximum_studenten',
-        'parent_max_type',
+        'parent_max_type', // for setting if the max 30 students is over the parent or subdeel
         'start_inschrijving',
         'eind_inschrijving',
     ];
 
     protected $appends = ['status_helper'];
 
+    /**
+     * Status helper accessor
+     */
     public function getStatusHelperAttribute(): StatusHelper
     {
         return new StatusHelper(
@@ -38,40 +41,20 @@ class Keuzedeel extends Model
         );
     }
 
+    /**
+     * Child keuzedelen (delen)
+     */
     public function delen()
     {
-        return $this->hasMany(self::class, 'parent_id')->orderBy('volgorde');
+        return $this->hasMany(self::class, 'parent_id')
+            ->orderBy('volgorde');
     }
 
+    /**
+     * Parent keuzedeel
+     */
     public function parent()
     {
         return $this->belongsTo(self::class, 'parent_id');
     }
-
-    // filtering keuzedelen based on student
-    public function isEligibleForStudent($student)
-    {
-        if (!$student || $student->user->role !== 'student') {
-            return true;
-        }
-
-        if (!$this->parent_id) { // only subdelen have parent_id
-            return true;
-        }
-
-        preg_match('/^(\d+)?K/', $this->id, $matches);
-        $keuzedeelNumber = $matches[1] ?? null;
-
-        preg_match('/^(\d+)(?:bol|bbl)/i', $student->opleidingsnummer, $matches);
-        $opleidingNumber = $matches[1] ?? null;
-
-        // If no number before K, all students can see
-        if (!$keuzedeelNumber) {
-            return true;
-        }
-
-        return $keuzedeelNumber === $opleidingNumber;
-    }
-
-
 }
