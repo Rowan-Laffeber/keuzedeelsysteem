@@ -14,11 +14,32 @@
     {{-- Test accounts info --}}
     <div class="mb-6 bg-blue-100 text-blue-700 p-4">
         <p class="font-semibold mb-2">Test accounts</p>
-        <ul class="space-y-1 text-sm">
-            <li><strong>Student</strong>: <p>1234567@student.school.nl</p><p>password</p></li>
-            <li><strong>Docent</strong>: <p>docent@docent.nl</p><p>password</p></li>
-            <li><strong>Admin</strong>: <p>admin@admin.nl</p><p>password</p></li>
+        <ul class="space-y-2 text-sm">
+            <li class="cursor-pointer text-blue-800 hover:underline"
+                data-email="1234567@student.school.nl"
+                data-password="password">
+                <strong>Student</strong><br>
+                1234567@student.school.nl<br>
+                password
+            </li>
+
+            <li class="cursor-pointer text-blue-800 hover:underline"
+                data-email="docent@docent.nl"
+                data-password="password">
+                <strong>Docent</strong><br>
+                docent@docent.nl<br>
+                password
+            </li>
+
+            <li class="cursor-pointer text-blue-800 hover:underline"
+                data-email="admin@admin.nl"
+                data-password="password">
+                <strong>Admin</strong><br>
+                admin@admin.nl<br>
+                password
+            </li>
         </ul>
+
     </div>
 
     @if(session('error'))
@@ -70,6 +91,15 @@
         </button>
     </form>
 </main>
+<script>
+    document.querySelectorAll('[data-email]').forEach(account => {
+        account.addEventListener('click', () => {
+            document.getElementById('email').value = account.dataset.email;
+            document.getElementById('password').value = account.dataset.password;
+        });
+    });
+</script>
+
 
 </body>
 </html>
