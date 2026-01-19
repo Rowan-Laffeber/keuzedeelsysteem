@@ -7,6 +7,7 @@
 <main class="max-w-7xl mx-auto p-6">
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900">Mijn Profiel</h1>
+        <h2 class="text-2xl font-bold text-gray-900">{{ $student->user->name }}</h2>
         <p class="text-gray-600 mt-2">Hier zie je je ingeschreven keuzedelen.</p>
     </div>
 
@@ -15,7 +16,7 @@
         <h2 class="text-xl font-semibold mb-4">Studentgegevens</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <span class="font-medium">Naam:</span> {{ $student->user->name }}
+                <span class="font-medium">Roostergroep:</span> {{ $student->roostergroep }}
             </div>
             <div>
                 <span class="font-medium">Studentnummer:</span> {{ $student->studentnummer }}

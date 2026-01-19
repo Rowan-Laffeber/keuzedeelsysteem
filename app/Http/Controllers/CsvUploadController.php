@@ -58,7 +58,6 @@ class CsvUploadController extends Controller
     {
         $uploadFolder = storage_path('app/csv_uploads');
 
-        // Ensure folder exists
         if (!is_dir($uploadFolder)) {
             mkdir($uploadFolder, 0777, true);
         }
@@ -66,11 +65,7 @@ class CsvUploadController extends Controller
         $filename = time() . '_' . $file->getClientOriginalName();
         $fullPath = $file->move($uploadFolder, $filename);
 
-        if (file_exists($fullPath)) {
-            return $fullPath;
-        }
-
-        return false;
+        return file_exists($fullPath) ? $fullPath : false;
     }
 
     /**
@@ -92,20 +87,23 @@ class CsvUploadController extends Controller
             $delimiter = str_contains($firstLine, ';') ? ';' : ',';
             rewind($handle);
 
-            // Find header row containing 'student'
+            // Find header row containing 'roostergroep'
             $header = null;
             while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
-                $rowLower = array_map('strtolower', $row);
-                if (in_array('student', $rowLower)) {
-                    $header = $row;
+                $rowLower = array_map('strtolower', array_map('trim', $row));
+                if (in_array('roostergroep', $rowLower)) {
+                    // Normalize headers: lowercase and trim
+                    $header = $rowLower;
                     break;
                 }
             }
 
             if (!$header) {
                 fclose($handle);
-                throw new \Exception("CSV header with 'student' column not found.");
+                throw new \Exception("CSV header with 'roostergroep' column not found.");
             }
+
+            $lastRoostergroep = null;
 
             // Process each student row
             while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
@@ -114,15 +112,24 @@ class CsvUploadController extends Controller
                 $row = array_map('trim', $row);
                 $data = array_combine($header, $row);
 
+                // Handle Roostergroep: use current, else last known, else fallback
+                $roostergroep = $data['roostergroep'] ?? '';
+                if ($roostergroep === '' || $roostergroep === null) {
+                    $roostergroep = $lastRoostergroep ?? 'onbekend';
+                } else {
+                    $lastRoostergroep = $roostergroep;
+                }
+
                 $studentnummer = $data['student'] ?? null;
                 $name = $data['naam'] ?? null;
-                $opleidingsnummer = $data['Opleidings Code'] ?? null;
+                $opleidingsnummer = $data['opleidings code'] ?? null;
                 $cohortYearRaw = $data['cohort'] ?? null;
 
                 if (empty($studentnummer) || empty($name)) continue;
 
                 $cohortYear = intval(substr($cohortYearRaw, 0, 4));
 
+                // Create or get user
                 $user = User::firstOrCreate(
                     ['email' => $studentnummer . '@student.school.nl'],
                     [
@@ -133,6 +140,7 @@ class CsvUploadController extends Controller
                     ]
                 );
 
+                // Create or get student
                 Student::firstOrCreate(
                     ['studentnummer' => $studentnummer],
                     [
@@ -140,6 +148,7 @@ class CsvUploadController extends Controller
                         'user_id' => $user->id,
                         'opleidingsnummer' => $opleidingsnummer,
                         'cohort_year' => $cohortYear,
+                        'roostergroep' => $roostergroep,
                     ]
                 );
 

@@ -9,7 +9,7 @@ class Student extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'user_id', 'studentnummer', 'opleidingsnummer', 'cohort_year'];
+    protected $fillable = ['id', 'user_id', 'studentnummer', 'opleidingsnummer', 'cohort_year', 'roostergroep'];
 
     public function user()
     {

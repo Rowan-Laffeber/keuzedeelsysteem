@@ -14,6 +14,7 @@ return new class extends Migration
             $table->string('studentnummer')->unique();
             $table->string('opleidingsnummer');
             $table->year('cohort_year');
+            $table->string('roostergroep');
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
