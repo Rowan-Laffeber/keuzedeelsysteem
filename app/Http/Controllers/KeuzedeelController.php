@@ -20,6 +20,7 @@ class KeuzedeelController extends Controller
         
         $parents = Keuzedeel::whereNull('parent_id')->get();
         $keuzedelen = [];
+        $seenIds = []; // track IDs across all files
 
         $uploadFolder = storage_path('app/csv_uploads');
 
@@ -47,12 +48,12 @@ class KeuzedeelController extends Controller
                     if ($foundExaminerend) {
                         foreach ($row as $cell) {
                             $cell = trim($cell);
-                            // Only add new keuzedeel IDs starting with K
-                            if (strpos($cell, 'K') !== false && !Keuzedeel::where('id', $cell)->exists()) {
+                            if (strpos($cell, 'K') !== false && !Keuzedeel::where('id', $cell)->exists() && !in_array($cell, $seenIds)) {
                                 $keuzedelen[] = $cell;
+                                $seenIds[] = $cell;
                             }
                         }
-                        break; // stop reading after first data row following 'Examinerend'
+                        break;
                     }
                 }
 
