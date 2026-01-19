@@ -5,6 +5,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\KeuzedeelController;
 use App\Http\Controllers\InschrijvingController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CsvUploadController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,21 +24,27 @@ Route::middleware('auth')->group(function () {
     // Home & keuzedeel info
     Route::get('/', [HomeController::class, 'home'])->name('home');
 
-    // Student profile
-    Route::get('/profile', [HomeController::class, 'profile'])->name('profile');
-
     // Route::get('/keuzedeel/{keuzedeel/{id}', [HomeController::class, 'info'])->name('keuzedeel.info');
-
     Route::get('/keuzedeel/{keuzedeel}', [HomeController::class, 'info'])->name('keuzedeel.info');
-
-    // Student inscriptions
-    Route::post('/inschrijven', [InschrijvingController::class, 'store'])->name('inschrijven.store');
 
     // test routes
     Route::get('/homeCOPYFORCONCEPT', fn() => view('homeCOPYFORCONCEPT'));
+    
+    // Student-specific routes
+    // Route::middleware(['student'])->group(function () {
+        Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'index'])->name('profile');
+        Route::post('/inschrijven', [InschrijvingController::class, 'store'])->name('inschrijven.store');
+    // });
 
-    // --- Keuzedeel creation routes ---
-    Route::get('/create', [KeuzedeelController::class, 'create'])->name('create');
-    Route::post('/keuzedeel/aanmaken', [KeuzedeelController::class, 'store'])->name('keuzedeel.store');
+    // Admin-only routes
+    // Route::middleware(['admin'])->group(function () {
+        Route::get('/create', [KeuzedeelController::class, 'create'])->name('create');
+        Route::post('/keuzedeel/aanmaken', [KeuzedeelController::class, 'store'])->name('keuzedeel.store');
+        Route::get('/csv-upload', [CsvUploadController::class, 'index']);
+        Route::post('/csv-upload', [CsvUploadController::class, 'store'])->name('upload');
+    // });
+
+
 });
+
 

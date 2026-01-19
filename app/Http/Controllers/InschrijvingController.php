@@ -9,6 +9,10 @@ class InschrijvingController extends Controller
 {
     public function store(Request $request)
     {
+        $user = auth()->user();
+        if ($user->role !== 'student') {
+            return redirect()->route('home')->with('error', 'Alleen studenten mogen deze pagina bekijken.');
+        }
         $keuzedeelId = $request->input('keuzedeel_id');
         $student = auth()->user()->student;
         $keuzedeel = Keuzedeel::findOrFail($keuzedeelId);

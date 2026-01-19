@@ -12,38 +12,52 @@ class KeuzedeelController extends Controller
      * Show the form to create a new keuzedeel.
      */
     public function create()
-    {
+    {   
         $user = auth()->user();
         if ($user->role !== 'admin') {
             return redirect()->route('home')->with('error', 'Alleen admins mogen deze pagina bekijken.');
         }
-
+        
         $parents = Keuzedeel::whereNull('parent_id')->get();
-
-        $csvFile = base_path('tempfiles/Overzicht-keuzedeel-per-student.csv');
         $keuzedelen = [];
-        if (file_exists($csvFile)) {
-            $firstLine = file($csvFile)[0] ?? '';
-            $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
-            $handle = fopen($csvFile, 'r');
-            $foundExaminerend = false;
 
-            while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
-                if (in_array('Examinerend', $row)) {
-                    $foundExaminerend = true;
-                    continue;
-                }
-                if ($foundExaminerend) {
-                    foreach ($row as $cell) {
-                        $cell = trim($cell);
-                        if (strpos($cell, 'K') !== false && !Keuzedeel::where('id', $cell)->exists()) {
-                            $keuzedelen[] = $cell;
-                        }
+        $uploadFolder = storage_path('app/csv_uploads');
+
+        if (is_dir($uploadFolder)) {
+
+            // Scan all CSV files in the folder
+            $files = glob($uploadFolder . '/*.csv');
+
+            foreach ($files as $csvFile) {
+
+                $firstLine = file($csvFile)[0] ?? '';
+                $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
+                $handle = fopen($csvFile, 'r');
+
+                if (!$handle) continue;
+
+                $foundExaminerend = false;
+
+                while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+                    if (in_array('Examinerend', $row)) {
+                        $foundExaminerend = true;
+                        continue;
                     }
-                    break;
+
+                    if ($foundExaminerend) {
+                        foreach ($row as $cell) {
+                            $cell = trim($cell);
+                            // Only add new keuzedeel IDs starting with K
+                            if (strpos($cell, 'K') !== false && !Keuzedeel::where('id', $cell)->exists()) {
+                                $keuzedelen[] = $cell;
+                            }
+                        }
+                        break; // stop reading after first data row following 'Examinerend'
+                    }
                 }
+
+                fclose($handle);
             }
-            fclose($handle);
         }
 
         return view('create', compact('parents', 'keuzedelen'));
