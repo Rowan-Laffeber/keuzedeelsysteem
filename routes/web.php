@@ -32,7 +32,7 @@ Route::middleware('auth')->group(function () {
     
     // Student-specific routes
     // Route::middleware(['student'])->group(function () {
-        Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'index'])->name('profile');
+        Route::get('/profile', [HomeController::class, 'profile'])->name('profile');
         Route::post('/inschrijven', [InschrijvingController::class, 'store'])->name('inschrijven.store');
     // });
 
