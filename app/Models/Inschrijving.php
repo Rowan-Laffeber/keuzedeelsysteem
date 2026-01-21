@@ -40,53 +40,44 @@ class Inschrijving extends Model
     // Scopes for easy querying
     public function scopeConfirmed($query)
     {
-        return $query->where('status', 'goedgekeurd');
+        return $query->where('status', 'confirmed');
     }
 
     public function scopePending($query)
     {
-        return $query->where('status', 'ingediend');
+        return $query->where('status', 'pending');
     }
 
     public function scopeCancelled($query)
     {
-        return $query->where('status', 'afgewezen');
-    }
-    public function scopeCompleted($query)
-    {
-        return $query->where('status', 'afgerond');
+        return $query->where('status', 'cancelled');
     }
 
     // Helper methods
     public function isConfirmed(): bool
     {
-        return $this->status === 'goedgekeurd';
+        return $this->status === 'confirmed';
     }
 
     public function isPending(): bool
     {
-        return $this->status === 'ingediend';
+        return $this->status === 'pending';
     }
 
     public function isCancelled(): bool
     {
-        return $this->status === 'afgewezen';
-    }
-    
-    public function isCompleted(): bool
-    {
-        return $this->status === 'afgerond';
+        return $this->status === 'cancelled';
     }
 
     public function confirm(): void
     {
-        $this->status = 'goedgekeurd';
+        $this->status = 'confirmed';
         $this->save();
     }
 
     public function cancel(): void
     {
-        $this->status = 'afgewezen';
+        $this->status = 'cancelled';
         $this->save();
     }
 }

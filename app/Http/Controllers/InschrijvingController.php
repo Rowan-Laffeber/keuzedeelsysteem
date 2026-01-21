@@ -23,7 +23,7 @@ class InschrijvingController extends Controller
             ->where('keuzedeel_id', $keuzedeelId)
             ->first();
 
-        if ($existingInschrijving && $existingInschrijving->status !== 'afgewezen') {
+        if ($existingInschrijving && $existingInschrijving->status !== 'cancelled') {
             return back()->with('error', 'Je bent al ingeschreven.');
         }
 
@@ -33,9 +33,9 @@ class InschrijvingController extends Controller
         }
 
         // Create new enrollment or reactivate cancelled one
-        if ($existingInschrijving && $existingInschrijving->status === 'afgewezen') {
+        if ($existingInschrijving && $existingInschrijving->status === 'cancelled') {
             // Reactivate cancelled enrollment
-            $existingInschrijving->status = 'goedgekeurd';
+            $existingInschrijving->status = 'confirmed';
             $existingInschrijving->inschrijfdatum = now();
             $existingInschrijving->save();
         } else {
@@ -44,7 +44,7 @@ class InschrijvingController extends Controller
                 'id' => Str::uuid(),
                 'student_id' => $student->id,
                 'keuzedeel_id' => $keuzedeelId,
-                'status' => 'goedgekeurd',
+                'status' => 'confirmed',
             ]);
         }
 
@@ -58,7 +58,7 @@ class InschrijvingController extends Controller
         
         $inschrijving = $student->inschrijvingen()
             ->where('keuzedeel_id', $keuzedeelId)
-            ->where('status', 'goedgekeurd')
+            ->where('status', 'confirmed')
             ->first();
 
         if (!$inschrijving) {

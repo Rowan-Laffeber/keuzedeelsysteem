@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->uuid('student_id');
             $table->uuid('keuzedeel_id');
-            $table->enum('status', ['ingediend', 'goedgekeurd', 'afgewezen', 'afgerond'])->default('goedgekeurd');
+            $table->enum('status', ['pending', 'confirmed', 'cancelled'])->default('confirmed');
             $table->text('opmerkingen')->nullable();
             $table->timestamp('inschrijfdatum')->useCurrent();
 
