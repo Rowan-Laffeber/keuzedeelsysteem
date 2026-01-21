@@ -44,52 +44,13 @@
 </div>
 
 <section class="mb-4 p-4 border rounded bg-gray-50 text-gray-800">
-    <div class="mb-2">
-        {{ $keuzedeel->description }}
-    </div>
     <div id="deel-beschrijving">
         {{ $delen[0]->description ?? '' }}
     </div>
 </section>
 
-<div class="flex justify-between mt-4 space-x-4">
-    @if(auth()->user()->role === 'student')
-        @php
-            $huidigDeel = $delen[0] ?? null;
-            $isIngeschreven = $huidigDeel ? ($huidigDeel->is_ingeschreven ?? false) : false;
-            $isVol = $huidigDeel ? (($huidigDeel->ingeschreven ?? 0) >= $huidigDeel->maximum_studenten) : false;
-        @endphp
-        
-        @if($isIngeschreven)
-            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                <strong>Al ingeschreven!</strong> Je bent al ingeschreven voor dit keuzedeel.
-            </div>
-        @elseif($isVol)
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                <strong>Vol!</strong> Dit keuzedeel zit helaas vol.
-            </div>
-        @else
-            <form method="POST" action="{{ route('inschrijven.store') }}" id="inschrijf-form">
-                @csrf
-                <input type="hidden" name="keuzedeel_id" id="keuzedeel_id_input" value="{{ $huidigDeel->id ?? '' }}">
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
-                    Schrijf in
-                </button>
-            </form>
-        @endif
-    @endif
-
-    @if(in_array(auth()->user()->role, ['admin','docent']))
-        <button class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded">
-            Pas info aan
-        </button>
-    @endif
-
-    @if(auth()->user()->role === 'admin')
-        <button class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded">
-            Actief status aanpassen
-        </button>
-    @endif  
+<div class="flex justify-between mt-4 space-x-4" id="form-container">
+    <!-- Form will be dynamically updated by JavaScript -->
 </div>
 
 @php
@@ -100,7 +61,7 @@ $js_isIngeschreven = [];
 
 foreach ($delen as $deel) {
     $js_ids[] = $deel->id;
-    $js_aantalIngeschreven[] = $deel->ingeschreven ?? 0;
+    $js_aantalIngeschreven[] = $deel->ingeschreven_count ?? 0;
     $js_beschrijvingen[] = $deel->description ?? '';
     $js_isIngeschreven[] = $deel->is_ingeschreven ?? false;
 }
@@ -120,16 +81,27 @@ const beschrijvingen = @json($js_beschrijvingen);
 const isIngeschreven = @json($js_isIngeschreven);
 
 function updateForm(deelIndex) {
-    const formContainer = document.querySelector('.flex.justify-between.mt-4');
+    const formContainer = document.getElementById('form-container');
     const currentDeelId = ids[deelIndex];
     const isEnrolled = isIngeschreven[deelIndex];
     const isFull = (aantalIngeschreven[deelIndex] ?? 0) >= ({{ $delen[0]->maximum_studenten ?? 30 }});
+    
+    // Update hidden input with current deel ID
+    const hiddenInput = document.getElementById('keuzedeel_id_input');
+    if (hiddenInput) {
+        hiddenInput.value = currentDeelId;
+    }
     
     let formHtml = '';
     
     @if(auth()->user()->role === 'student')
         if (isEnrolled) {
-            formHtml = '<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded"><strong>Al ingeschreven!</strong> Je bent al ingeschreven voor dit keuzedeel.</div>';
+            formHtml = `<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-3"><strong>Al ingeschreven!</strong> Je bent al ingeschreven voor dit keuzedeel.</div>
+                <form method="POST" action="{{ route('uitschrijven.destroy') }}" id="uitschrijf-form">
+                    @csrf
+                    <input type="hidden" name="keuzedeel_id" id="keuzedeel_id_input" value="${currentDeelId}">
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded">Schrijf uit</button>
+                </form>`;
         } else if (isFull) {
             formHtml = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"><strong>Vol!</strong> Dit keuzedeel zit helaas vol.</div>';
         } else {
@@ -184,9 +156,16 @@ function selectDeelById(id) {
 const initialDeel =
     getQueryParam('id') && ids.includes(getQueryParam('id'))
         ? getQueryParam('id')
-        : ids[0];
+        : (ids.length > 0 ? ids[0] : null);
 
-selectDeelById(initialDeel);
+if (initialDeel) {
+    selectDeelById(initialDeel);
+} else {
+    // Fallback: set first available ID if no valid selection
+    if (ids.length > 0) {
+        selectDeelById(ids[0]);
+    }
+}
 
 // Add click listeners to switch subdelen
 deelButtons.forEach(btn => {

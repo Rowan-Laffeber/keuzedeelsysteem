@@ -27,6 +27,10 @@ Route::middleware('auth')->group(function () {
     // Route::get('/keuzedeel/{keuzedeel/{id}', [HomeController::class, 'info'])->name('keuzedeel.info');
     Route::get('/keuzedeel/{keuzedeel}', [HomeController::class, 'info'])->name('keuzedeel.info');
 
+    // Student inscriptions
+    Route::post('/inschrijven', [InschrijvingController::class, 'store'])->name('inschrijven.store');
+    Route::post('/uitschrijven', [InschrijvingController::class, 'destroy'])->name('uitschrijven.destroy');
+
     // test routes
     Route::get('/homeCOPYFORCONCEPT', fn() => view('homeCOPYFORCONCEPT'));
     

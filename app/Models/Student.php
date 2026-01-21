@@ -16,9 +16,29 @@ class Student extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function inschrijvingen()
+    {
+        return $this->hasMany(Inschrijving::class);
+    }
+
     public function keuzedelen()
     {
-        return $this->belongsToMany(Keuzedeel::class, 'keuzedeel_student')
-            ->withTimestamps();
+        return $this->belongsToMany(Keuzedeel::class, 'inschrijvings')
+            ->withPivot(['status', 'opmerkingen', 'inschrijfdatum'])
+            ->withTimestamps()
+            ->withCasts([
+                'inschrijfdatum' => 'datetime',
+            ]);
+    }
+
+    public function bevestigdeKeuzedelen()
+    {
+        return $this->belongsToMany(Keuzedeel::class, 'inschrijvings')
+            ->wherePivot('status', 'confirmed')
+            ->withPivot(['status', 'opmerkingen', 'inschrijfdatum'])
+            ->withTimestamps()
+            ->withCasts([
+                'inschrijfdatum' => 'datetime',
+            ]);
     }
 }
