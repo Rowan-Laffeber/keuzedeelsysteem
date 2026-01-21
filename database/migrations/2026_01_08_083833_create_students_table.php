@@ -13,7 +13,7 @@ return new class extends Migration
             $table->uuid('user_id')->unique();
             $table->string('studentnummer')->unique();
             $table->string('opleidingsnummer');
-            $table->year('cohort_year');
+            $table->string('cohort_year');
             $table->string('roostergroep');
             $table->timestamps();
 

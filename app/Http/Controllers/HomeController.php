@@ -20,17 +20,18 @@ class HomeController extends Controller
 
             return view('home', compact('parents'));
         }
-
-        // Student: bepaal opleidingsprefix (bijv. 25604 uit 25604BOL)
+        
+        // CODE VOOR FILTEREN GEBASEERD OP OPLEIDINGSCODE, NIET NODIG
+        // // Student: bepaal opleidingsprefix (bijv. 25604 uit 25604BOL)
         $student = $user->student;
-        preg_match('/^\d{5}/', $student->opleidingsnummer ?? '', $matches);
-        $opleidingPrefix = $matches[0] ?? null;
+        // preg_match('/^\d{5}/', $student->opleidingsnummer ?? '', $matches);
+        // $opleidingPrefix = $matches[0] ?? null;
 
-        // ALLEEN parents met minstens één toegestaan child
+        // // ALLEEN parents met minstens één toegestaan child
         $parents = Keuzedeel::whereNull('parent_id')
-            ->whereHas('delen', function ($query) use ($opleidingPrefix) {
-                $query->forStudentOpleiding($opleidingPrefix);
-            })
+            // ->whereHas('delen', function ($query) use ($opleidingPrefix){
+            //     $query->forStudentOpleiding($opleidingPrefix);
+            // })
             ->orderBy('volgorde')
             ->get();
 
@@ -62,14 +63,15 @@ class HomeController extends Controller
             return view('info', compact('keuzedeel', 'delen'));
         }
 
-        // Student: bepaal opleidingsprefix
+        // CODE VOOR FILTEREN GEBASEERD OP OPLEIDINGSCODE, NIET NODIG
+        // // Student: bepaal opleidingsprefix
         $student = $user->student;
-        preg_match('/^\d{5}/', $student->opleidingsnummer ?? '', $matches);
-        $opleidingPrefix = $matches[0] ?? null;
+        // preg_match('/^\d{5}/', $student->opleidingsnummer ?? '', $matches);
+        // $opleidingPrefix = $matches[0] ?? null;
 
-        // alleen toegestane children
+        // // alleen toegestane children
         $delen = $keuzedeel->delen()
-            ->forStudentOpleiding($opleidingPrefix)
+        //     ->forStudentOpleiding($opleidingPrefix)
             ->orderBy('volgorde')
             ->get();
 

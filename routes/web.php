@@ -23,8 +23,6 @@ Route::middleware('auth')->group(function () {
 
     // Home & keuzedeel info
     Route::get('/', [HomeController::class, 'home'])->name('home');
-
-    // Route::get('/keuzedeel/{keuzedeel/{id}', [HomeController::class, 'info'])->name('keuzedeel.info');
     Route::get('/keuzedeel/{keuzedeel}', [HomeController::class, 'info'])->name('keuzedeel.info');
 
     // test routes

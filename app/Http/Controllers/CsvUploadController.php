@@ -11,9 +11,6 @@ use App\Models\Student;
 
 class CsvUploadController extends Controller
 {
-    /**
-     * Show the upload form.
-     */
     public function index()
     {
         $user = auth()->user();
@@ -21,12 +18,9 @@ class CsvUploadController extends Controller
             return redirect()->route('home')->with('error', 'Alleen admins mogen deze pagina bekijken.');
         }
 
-        return view('upload'); // resources/views/upload.blade.php
+        return view('upload');
     }
 
-    /**
-     * Handles the file upload and calls importStudents.
-     */
     public function store(Request $request)
     {
         $user = auth()->user();
@@ -38,22 +32,17 @@ class CsvUploadController extends Controller
             'csv_file' => 'required|file|mimes:csv,txt|max:2048',
         ]);
 
-        // Upload file
         $uploadedFilePath = $this->upload($request->file('csv_file'));
 
         if (!$uploadedFilePath) {
             return back()->with('error', 'Fout bij uploaden van CSV bestand.');
         }
 
-        // Import students from CSV
         $importCount = $this->importStudents($uploadedFilePath);
 
-        return back()->with('success', "CSV succesvol geüpload. {$importCount} studenten aangemaakt of bijgewerkt.");
+        return back()->with('success', "CSV succesvol geüpload. {$importCount} studenten aangemaakt");
     }
 
-    /**
-     * Uploads the file to storage/app/csv_uploads and returns full path.
-     */
     protected function upload($file)
     {
         $uploadFolder = storage_path('app/csv_uploads');
@@ -68,10 +57,6 @@ class CsvUploadController extends Controller
         return file_exists($fullPath) ? $fullPath : false;
     }
 
-    /**
-     * Reads CSV file and creates/updates students.
-     * Returns the number of students imported.
-     */
     protected function importStudents($fullPath)
     {
         $importedCount = 0;
@@ -82,17 +67,14 @@ class CsvUploadController extends Controller
                 throw new \Exception('Unable to open CSV file.');
             }
 
-            // Detect delimiter
             $firstLine = fgets($handle);
             $delimiter = str_contains($firstLine, ';') ? ';' : ',';
             rewind($handle);
 
-            // Find header row containing 'roostergroep'
             $header = null;
             while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
                 $rowLower = array_map('strtolower', array_map('trim', $row));
                 if (in_array('roostergroep', $rowLower)) {
-                    // Normalize headers: lowercase and trim
                     $header = $rowLower;
                     break;
                 }
@@ -105,14 +87,12 @@ class CsvUploadController extends Controller
 
             $lastRoostergroep = null;
 
-            // Process each student row
             while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
                 if (!$row || count($row) < 4) continue;
 
                 $row = array_map('trim', $row);
                 $data = array_combine($header, $row);
 
-                // Handle Roostergroep: use current, else last known, else fallback
                 $roostergroep = $data['roostergroep'] ?? '';
                 if ($roostergroep === '' || $roostergroep === null) {
                     $roostergroep = $lastRoostergroep ?? 'onbekend';
@@ -127,9 +107,9 @@ class CsvUploadController extends Controller
 
                 if (empty($studentnummer) || empty($name)) continue;
 
-                $cohortYear = intval(substr($cohortYearRaw, 0, 4));
+                // FIX: keep cohort as string
+                $cohortYear = $cohortYearRaw !== null ? trim($cohortYearRaw) : null;
 
-                // Create or get user
                 $user = User::firstOrCreate(
                     ['email' => $studentnummer . '@student.school.nl'],
                     [
@@ -140,7 +120,6 @@ class CsvUploadController extends Controller
                     ]
                 );
 
-                // Create or get student
                 Student::firstOrCreate(
                     ['studentnummer' => $studentnummer],
                     [

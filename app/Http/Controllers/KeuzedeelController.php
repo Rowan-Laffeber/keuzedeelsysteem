@@ -91,7 +91,6 @@ class KeuzedeelController extends Controller
             $parent = Keuzedeel::find($request->parent_id);
             $title = $parent->title;
 
-            // Force backend consistency
             $parentMaxType = $parent->parent_max_type ?? 'subdeel';
             if (!in_array($parentMaxType, ['subdeel', 'parent'])) {
                 $parentMaxType = 'subdeel';
