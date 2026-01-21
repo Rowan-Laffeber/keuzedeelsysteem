@@ -145,4 +145,56 @@ class KeuzedeelController extends Controller
 
         return redirect()->route('home')->with('success', 'Keuzedeel succesvol aangemaakt!');
     }
+    public function edit(Keuzedeel $keuzedeel)
+    {
+        $user = auth()->user();
+        if ($user->role !== 'admin') {
+            return redirect()->route('home');
+        }
+
+        return view('update', compact('keuzedeel'));
+    }
+
+    public function update(Request $request, Keuzedeel $keuzedeel)
+    {
+        $user = auth()->user();
+        if ($user->role !== 'admin') {
+            return redirect()->route('home');
+        }
+
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'start_inschrijving' => 'required|date',
+            'eind_inschrijving' => 'required|date|after:start_inschrijving',
+        ]);
+
+        // Update the edited keuzedeel's description and dates
+        $keuzedeel->update([
+            'description' => $request->description,
+            'start_inschrijving' => $request->start_inschrijving,
+            'eind_inschrijving' => $request->eind_inschrijving,
+        ]);
+
+        // Determine the parent
+        $parentId = $keuzedeel->parent_id ?? $keuzedeel->id;
+        $parent = Keuzedeel::find($parentId);
+
+        if ($parent) {
+            // Update the parent title
+            $parent->title = $request->title;
+            $parent->save();
+
+            // Update all subdelen of this parent to have the same title
+            Keuzedeel::where('parent_id', $parent->id)
+                ->update(['title' => $request->title]);
+        }
+
+        // Redirect to keuzedeel.info using parent_id as main route,
+        // and pass current subdeel id as query param "id"
+        return redirect()->route('keuzedeel.info', $parent->id) // parent route
+            ->with('success', 'Keuzedeel en bijbehorende subdelen succesvol aangepast!')
+            ->with('subdeel_id', $keuzedeel->id); // flash subdeel ID
+
+    }
 }
