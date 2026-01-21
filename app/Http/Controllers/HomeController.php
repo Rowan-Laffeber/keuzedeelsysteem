@@ -73,7 +73,7 @@ class HomeController extends Controller
         if ($keuzedeel->delen()->count() > 0) {
             // This is a parent keuzedeel - show its children
             $delen = $keuzedeel->delen()
-                ->forStudentOpleiding($opleidingPrefix)
+                // ->forStudentOpleiding($opleidingPrefix)
                 ->orderBy('volgorde')
                 ->get();
         } else {
