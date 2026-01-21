@@ -38,8 +38,26 @@ class Keuzedeel extends Model
         return new StatusHelper(
             $this->is_open ? 'nog_plek' : 'afgerond',
             $this->maximum_studenten ?? 0,
-            $this->ingeschreven ?? 0
+            $this->ingeschreven_count ?? 0
         );
+    }
+
+    /**
+     * Get actual enrollment count from inschrijvingen table
+     */
+    public function getIngeschrevenCountAttribute(): int
+    {
+        // Ensure we get fresh data, not cached
+        return $this->bevestigdeStudenten()->count();
+    }
+
+    /**
+     * Refresh enrollment count cache
+     */
+    public function refreshEnrollmentCount(): void
+    {
+        $this->load('bevestigdeStudenten');
+        unset($this->ingeschreven_count);
     }
 
     /**
@@ -65,8 +83,28 @@ class Keuzedeel extends Model
     
     public function students()
     {
-        return $this->belongsToMany(Student::class, 'keuzedeel_student')
-            ->withTimestamps();
+        return $this->belongsToMany(Student::class, 'inschrijvings')
+            ->withPivot(['status', 'opmerkingen', 'inschrijfdatum'])
+            ->withTimestamps()
+            ->withCasts([
+                'inschrijfdatum' => 'datetime',
+            ]);
+    }
+
+    public function inschrijvingen()
+    {
+        return $this->hasMany(Inschrijving::class);
+    }
+
+    public function bevestigdeStudenten()
+    {
+        return $this->belongsToMany(Student::class, 'inschrijvings')
+            ->wherePivot('status', 'confirmed')
+            ->withPivot(['status', 'opmerkingen', 'inschrijfdatum'])
+            ->withTimestamps()
+            ->withCasts([
+                'inschrijfdatum' => 'datetime',
+            ]);
     }
     
     // /**

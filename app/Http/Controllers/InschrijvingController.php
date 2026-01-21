@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 use App\Models\Keuzedeel;
+use App\Models\Inschrijving;
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Str;
 
 class InschrijvingController extends Controller
 {
@@ -17,17 +18,59 @@ class InschrijvingController extends Controller
         $student = auth()->user()->student;
         $keuzedeel = Keuzedeel::findOrFail($keuzedeelId);
 
-        if ($student->keuzedelen()->where('keuzedeel_id', $keuzedeelId)->exists()) {
+        // Check if already enrolled
+        $existingInschrijving = $student->inschrijvingen()
+            ->where('keuzedeel_id', $keuzedeelId)
+            ->first();
+
+        if ($existingInschrijving && $existingInschrijving->status !== 'cancelled') {
             return back()->with('error', 'Je bent al ingeschreven.');
         }
 
-        if ($keuzedeel->students()->count() >= $keuzedeel->maximum_studenten) {
+        // Check if keuzedeel is full
+        if ($keuzedeel->bevestigdeStudenten()->count() >= $keuzedeel->maximum_studenten) {
             return back()->with('error', 'Maximum aantal inschrijvingen bereikt.');
         }
 
-        $student->keuzedelen()->attach($keuzedeelId);
+        // Create new enrollment or reactivate cancelled one
+        if ($existingInschrijving && $existingInschrijving->status === 'cancelled') {
+            // Reactivate cancelled enrollment
+            $existingInschrijving->status = 'confirmed';
+            $existingInschrijving->inschrijfdatum = now();
+            $existingInschrijving->save();
+        } else {
+            // Create new enrollment record
+            Inschrijving::create([
+                'id' => Str::uuid(),
+                'student_id' => $student->id,
+                'keuzedeel_id' => $keuzedeelId,
+                'status' => 'confirmed',
+            ]);
+        }
 
         return back()->with('success', 'Succesvol ingeschreven!');
     }
 
+    public function destroy(Request $request)
+    {
+        $keuzedeelId = $request->input('keuzedeel_id');
+        $student = auth()->user()->student;
+        
+        $inschrijving = $student->inschrijvingen()
+            ->where('keuzedeel_id', $keuzedeelId)
+            ->where('status', 'confirmed')
+            ->first();
+
+        if (!$inschrijving) {
+            return back()->with('error', 'Geen actieve inschrijving gevonden.');
+        }
+
+        $inschrijving->cancel();
+
+        // Clear any cached counts
+        $keuzedeel = $inschrijving->keuzedeel;
+        $keuzedeel->refreshEnrollmentCount();
+
+        return back()->with('success', 'Succesvol uitgeschreven!');
+    }
 }
