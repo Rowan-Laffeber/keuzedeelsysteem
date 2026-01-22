@@ -20,7 +20,6 @@ class Keuzedeel extends Model
         'parent_id',
         'volgorde',
         'actief',
-        'is_open',
         'minimum_studenten',
         'maximum_studenten',
         'parent_max_type', // for setting if the max 30 students is over the parent or subdeel
@@ -36,7 +35,7 @@ class Keuzedeel extends Model
     public function getStatusHelperAttribute(): StatusHelper
     {
         return new StatusHelper(
-            $this->is_open ? 'nog_plek' : 'afgerond',
+            $this->actief ? 'nog_plek' : 'afgerond',
             $this->maximum_studenten ?? 0,
             $this->ingeschreven_count ?? 0
         );

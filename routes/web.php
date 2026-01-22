@@ -46,8 +46,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/csv-upload', [CsvUploadController::class, 'store'])->name('upload');
         Route::get('/keuzedeel/{keuzedeel}/edit', [KeuzedeelController::class, 'edit'])->name('keuzedeel.edit');
         Route::put('/keuzedeel/{keuzedeel}', [KeuzedeelController::class, 'update'])->name('keuzedeel.update');
+        Route::post('keuzedeel/{keuzedeel}/toggle-actief', [KeuzedeelController::class, 'toggleActief'])->name('keuzedeel.toggleActief');
 
     // });
+    
 
 
 });

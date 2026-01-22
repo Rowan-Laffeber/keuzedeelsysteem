@@ -117,7 +117,6 @@ class KeuzedeelController extends Controller
                 'title' => $request->title,
                 'description' => '',
                 'actief' => true,
-                'is_open' => true,
                 'minimum_studenten' => 15,
                 'maximum_studenten' => 30, // always 30 for new parent
                 'parent_max_type' => $parentMaxType,
@@ -135,7 +134,6 @@ class KeuzedeelController extends Controller
             'parent_id' => $request->parent_id ?? $parent->id,
             'volgorde' => 1,
             'actief' => true,
-            'is_open' => true,
             'minimum_studenten' => 15,
             'maximum_studenten' => $subdeelMax,
             'parent_max_type' => $parentMaxType,
@@ -197,4 +195,21 @@ class KeuzedeelController extends Controller
             ->with('subdeel_id', $keuzedeel->id); // flash subdeel ID
 
     }
+    public function toggleActief(Keuzedeel $keuzedeel)
+    {
+        $user = auth()->user();
+        if ($user->role !== 'admin') {
+            return redirect()->route('home');
+        }
+
+        // Toggle the subdeel status
+        $keuzedeel->actief = ! $keuzedeel->actief;
+        $keuzedeel->save();
+
+        return back();
+    }
+
+
+
 }
+

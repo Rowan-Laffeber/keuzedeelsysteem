@@ -15,7 +15,6 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             $table->boolean('actief')->default(true);
-            $table->boolean('is_open')->default(true);
 
             $table->integer('minimum_studenten')->default(15);
             $table->integer('maximum_studenten')->nullable();
