@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\KeuzedeelController;
 use App\Http\Controllers\InschrijvingController;
+use App\Http\Controllers\MoreOptionsController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CsvUploadController;
 
@@ -36,6 +37,8 @@ Route::middleware('auth')->group(function () {
     // Route::middleware(['student'])->group(function () {
         Route::get('/profile', [HomeController::class, 'profile'])->name('profile');
         Route::post('/inschrijven', [InschrijvingController::class, 'store'])->name('inschrijven.store');
+        Route::get('/more-options', [MoreOptionsController::class, 'index'])->name('more-options.index');
+        Route::post('/more-options', [MoreOptionsController::class, 'store'])->name('more-options.store');
     // });
 
     // Admin-only routes

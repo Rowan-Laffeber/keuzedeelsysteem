@@ -48,7 +48,7 @@ class InschrijvingController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Succesvol ingeschreven!');
+        return redirect()->route('more-options.index')->with('success', 'Succesvol ingeschreven! Kies nu je overige keuzes.');
     }
 
     public function destroy(Request $request)

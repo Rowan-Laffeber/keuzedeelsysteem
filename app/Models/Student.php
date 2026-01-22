@@ -41,4 +41,9 @@ class Student extends Model
                 'inschrijfdatum' => 'datetime',
             ]);
     }
+
+    public function moreOptions()
+    {
+        return $this->hasMany(MoreOption::class);
+    }
 }
