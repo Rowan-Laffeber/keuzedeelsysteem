@@ -10,6 +10,12 @@ class StudentController extends Controller
 {
     public function index(Request $request)
     {
+
+        $user = auth()->user();
+        if ($user->role !== 'admin') {
+            return redirect()->route('home')->with('error', 'Alleen admins mogen deze pagina bekijken.');
+        }
+        
         $query = Student::with(['user', 'inschrijvingen.keuzedeel']);
 
         // --- Search filter: name, studentnummer, keuzedeel title ---
