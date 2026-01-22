@@ -7,6 +7,7 @@ use App\Http\Controllers\InschrijvingController;
 use App\Http\Controllers\MoreOptionsController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CsvUploadController;
+use App\Http\Controllers\StudentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -52,9 +53,12 @@ Route::middleware('auth')->group(function () {
         Route::post('keuzedeel/{keuzedeel}/toggle-actief', [KeuzedeelController::class, 'toggleActief'])->name('keuzedeel.toggleActief');
         Route::delete('/keuzedeel/{keuzedeel}', [KeuzedeelController::class, 'destroy'])->name('keuzedeel.destroy');
 
+        Route::get('/studentoverzicht', [StudentController::class, 'index'])->name('studentoverzicht');
+
 
     // });
-    
+    Route::get('/students', [StudentController::class, 'index'])->name('students.index');
+
 
 
 });

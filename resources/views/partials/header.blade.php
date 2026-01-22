@@ -12,9 +12,8 @@
                 @endif
                 @if(auth()->user()->role === 'admin')
                 <a href="{{ route('create') }}" class="text-gray-700 hover:text-blue-600 font-medium">Creëer keuzedeel</a>
-                @endif
-                @if(auth()->user()->role === 'admin')
                 <a href="{{ route('upload') }}" class="text-gray-700 hover:text-blue-600 font-medium">Upload CSV</a>
+                <a href="{{ route('studentoverzicht') }}" class="text-gray-700 hover:text-blue-600 font-medium">Ingeschreven Studenten</a>
                 @endif
                 <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Contact</a>
             </div>
