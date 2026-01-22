@@ -47,6 +47,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/keuzedeel/{keuzedeel}/edit', [KeuzedeelController::class, 'edit'])->name('keuzedeel.edit');
         Route::put('/keuzedeel/{keuzedeel}', [KeuzedeelController::class, 'update'])->name('keuzedeel.update');
         Route::post('keuzedeel/{keuzedeel}/toggle-actief', [KeuzedeelController::class, 'toggleActief'])->name('keuzedeel.toggleActief');
+        Route::delete('/keuzedeel/{keuzedeel}', [KeuzedeelController::class, 'destroy'])->name('keuzedeel.destroy');
+
 
     // });
     

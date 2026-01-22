@@ -135,7 +135,7 @@
         <form method="POST" id="actief-form">
             @csrf
             <button type="button" onclick="closeActiefModal()"
-                    class="px-4 py-2 border rounded">Annuleren</button>
+                    class="px-4 py-2 border rounded hover:bg-gray-200">Annuleren</button>
             <button type="submit"
                     class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">Bevestigen</button>
         </form>
@@ -185,7 +185,17 @@ function selectDeelById(id) {
                 'px-4 py-2 rounded text-white font-semibold flex items-center ' +
                 (actief[i] ? 'bg-green-600' : 'bg-red-600');
 
-            datumBox.innerHTML = `<div><p>inschrijvingsperiode:</p></div><div>${startData[i]} / ${eindData[i]}</div>`;
+                function formatDateDMY(dateStr) {
+                    if (!dateStr) return '';
+                    const [year, month, day] = dateStr.split('-');
+                    return `${day}-${month}-${year}`;
+                }
+
+                datumBox.innerHTML = `
+                    <div><p>Inschrijvingsperiode:</p></div>
+                    <div>${formatDateDMY(startData[i])} / ${formatDateDMY(eindData[i])}</div>
+                `;
+
 
             modalIdSpan.textContent = id;
             actiefForm.action = `/keuzedeel/${id}/toggle-actief`;

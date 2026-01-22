@@ -209,6 +209,29 @@ class KeuzedeelController extends Controller
         return back();
     }
 
+    public function destroy(Keuzedeel $keuzedeel)
+    {
+        $user = auth()->user();
+        if ($user->role !== 'admin') {
+            return redirect()->route('home');
+        }
+
+        // Store parent_id before deleting
+        $parentId = $keuzedeel->parent_id;
+
+        // Delete the subdeel
+        $keuzedeel->delete();
+
+        // If the parent exists and has no more children, delete the parent too
+        if ($parentId) {
+            $parent = Keuzedeel::find($parentId);
+            if ($parent && $parent->where('parent_id', $parent->id)->count() === 0) {
+                $parent->delete();
+            }
+        }
+
+        return redirect()->route('home')->with('success', 'Keuzedeel en lege parent succesvol verwijderd.');
+    }
 
 
 }
