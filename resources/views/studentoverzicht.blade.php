@@ -3,13 +3,6 @@
 @section('title', 'Student Overzicht')
 
 @section('content')
-@php
-    $currentSearch = request()->query('search', '');
-    $currentKeuzedeel = request()->query('keuzedeel', '');
-    $currentRoostergroep = request()->query('roostergroep', '');
-    $currentOpleiding = request()->query('opleiding', '');
-@endphp
-
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
     {{-- Header --}}
@@ -21,37 +14,43 @@
     </div>
 
     {{-- Filters --}}
-    <div class="mb-4 grid grid-cols-1 sm:grid-cols-4 gap-4">
+    <div class="mb-2 grid grid-cols-1 sm:grid-cols-5 gap-4">
         <input
             id="searchInput"
             type="text"
             placeholder="Zoek op naam, studentnummer of keuzedeel..."
             class="border rounded px-3 py-2 w-full"
-            value="{{ $currentSearch }}"
         />
 
         <select id="keuzedeelFilter" class="border rounded px-3 py-2">
             <option value="">Alle keuzedelen</option>
-            @foreach($keuzedelen->whereNotNull('parent_id') as $keuzedeel)
-                <option value="{{ $keuzedeel->id }}" {{ $currentKeuzedeel == $keuzedeel->id ? 'selected' : '' }}>
-                    {{ $keuzedeel->id }}
-                </option>
+            @foreach($keuzedelen as $keuzedeel)
+                <option value="{{ $keuzedeel->id }}">{{ $keuzedeel->id }}</option>
             @endforeach
         </select>
 
         <select id="roostergroepFilter" class="border rounded px-3 py-2">
             <option value="">Alle roostergroepen</option>
             @foreach($roostergroepen as $groep)
-                <option value="{{ $groep }}" {{ $currentRoostergroep == $groep ? 'selected' : '' }}>{{ $groep }}</option>
+                <option value="{{ $groep }}">{{ $groep }}</option>
             @endforeach
         </select>
 
         <select id="opleidingFilter" class="border rounded px-3 py-2">
             <option value="">Alle opleidingen</option>
             @foreach($opleidingen as $opleiding)
-                <option value="{{ $opleiding }}" {{ $currentOpleiding == $opleiding ? 'selected' : '' }}>{{ $opleiding }}</option>
+                <option value="{{ $opleiding }}">{{ $opleiding }}</option>
             @endforeach
         </select>
+
+        <button id="resetFilters" class="bg-gray-500 text-white px-4 py-2 rounded font-semibold">
+            Reset
+        </button>
+    </div>
+
+    {{-- Result count --}}
+    <div id="resultsCount" class="mb-4 text-gray-700 font-semibold">
+        {{ $students->count() }} resultaten
     </div>
 
     {{-- Students header --}}
@@ -61,7 +60,7 @@
         <div class="w-1/6">Opleidingsnummer</div>
         <div class="w-1/6">Cohort</div>
         <div class="w-1/6">Roostergroep</div>
-        <div class="w-1/6">Acties</div>
+        <div class="w-1/6">Inschrijvingen</div>
     </div>
 
     {{-- Students container --}}
@@ -76,9 +75,7 @@
 
                 {{-- Main row --}}
                 <div class="flex flex-col sm:flex-row items-start sm:items-center px-4 py-3 hover:bg-gray-50">
-                    <div class="w-full sm:w-1/4 font-semibold">
-                        {{ $student->user->name ?? 'Naam onbekend' }}
-                    </div>
+                    <div class="w-full sm:w-1/4 font-semibold">{{ $student->user->name ?? 'Naam onbekend' }}</div>
                     <div class="w-full sm:w-1/6">{{ $student->studentnummer }}</div>
                     <div class="w-full sm:w-1/6">{{ $student->opleidingsnummer }}</div>
                     <div class="w-full sm:w-1/6">{{ $student->cohort_year }}</div>
@@ -100,8 +97,8 @@
                         <div class="w-1/6">Code</div>
                         <div class="w-1/6">Prioriteit</div>
                         <div class="w-1/6">Status</div>
-                        <div class="w-1/6">Actie</div>
-                        <div class="w-1/6"></div>
+                        <div class="w-1/6">Functies</div>
+                        <div class="w-1/6"></div> {{-- Lege div voor styling --}}
                     </div>
 
                     @foreach($student->inschrijvingen as $inschrijving)
@@ -132,12 +129,11 @@
 
             </div>
         @empty
-            <div class="px-4 py-6 text-gray-500 text-center">
+            <div class="px-4 py-6 text-gray-500 text-center" id="noResultsStatic">
                 Geen studenten gevonden.
             </div>
         @endforelse
 
-        {{-- Extra element voor “geen resultaten na filter” --}}
         <div id="noResults" class="px-4 py-6 text-gray-500 text-center" style="display:none;">
             Geen studenten gevonden.
         </div>
@@ -145,48 +141,37 @@
     </div>
 </div>
 
-{{-- JS Filters --}}
+{{-- JS Filters & URL sync --}}
 <script>
 const searchInput = document.getElementById('searchInput');
 const keuzedeelFilter = document.getElementById('keuzedeelFilter');
 const roostergroepFilter = document.getElementById('roostergroepFilter');
 const opleidingFilter = document.getElementById('opleidingFilter');
-
-function updateURL() {
-    const params = new URLSearchParams();
-    if (searchInput.value) params.set('search', searchInput.value);
-    if (keuzedeelFilter.value) params.set('keuzedeel', keuzedeelFilter.value);
-    if (roostergroepFilter.value) params.set('roostergroep', roostergroepFilter.value);
-    if (opleidingFilter.value) params.set('opleiding', opleidingFilter.value);
-    const newUrl = `${window.location.pathname}?${params.toString()}`;
-    window.history.replaceState({}, '', newUrl);
-}
+const resetBtn = document.getElementById('resetFilters');
+const resultsCount = document.getElementById('resultsCount');
 
 function applyFilters() {
-    updateURL();
-
     const search = searchInput.value.toLowerCase();
     const keuzedeel = keuzedeelFilter.value;
     const roostergroep = roostergroepFilter.value;
     const opleiding = opleidingFilter.value;
 
     let anyVisible = false;
+    let visibleCount = 0;
 
     document.querySelectorAll('.student-row').forEach(student => {
         let visible = true;
 
-        // Roostergroep / opleiding filter
         if (roostergroep && student.dataset.roostergroep !== roostergroep) visible = false;
         if (opleiding && student.dataset.opleiding !== opleiding) visible = false;
 
-        // Search filter: naam / studentnummer / keuzedeel title
         if (search && !(
             student.dataset.name.includes(search) ||
             student.dataset.studentnummer.includes(search) ||
-            Array.from(student.querySelectorAll('[data-keuzedeel-title]')).some(row => row.dataset.keuzedeelTitle.includes(search))
+            Array.from(student.querySelectorAll('[data-keuzedeel-title]'))
+                .some(row => row.dataset.keuzedeelTitle.includes(search))
         )) visible = false;
 
-        // Keuzedeel ID filter
         if (keuzedeel) {
             const hasKeuzedeel = Array.from(student.querySelectorAll('[data-keuzedeel]'))
                 .some(row => row.dataset.keuzedeel === keuzedeel);
@@ -194,26 +179,71 @@ function applyFilters() {
         }
 
         student.style.display = visible ? '' : 'none';
-        if (visible) anyVisible = true;
+        if (visible) {
+            anyVisible = true;
+            visibleCount++;
+        }
     });
 
-    // Toon / verberg “geen resultaten”
+    // Update result count
+    resultsCount.textContent = `${visibleCount} ${visibleCount === 1 ? 'resultaat' : 'resultaten'}`;
+
+    // Show/hide “geen resultaten”
     document.getElementById('noResults').style.display = anyVisible ? 'none' : '';
+    if (document.getElementById('noResultsStatic')) {
+        document.getElementById('noResultsStatic').style.display = 'none';
+    }
+
+    // Update URL 
+    const params = new URLSearchParams();
+    if (searchInput.value) params.set('search', searchInput.value);
+    if (keuzedeel) params.set('keuzedeel', keuzedeel);
+    if (roostergroep) params.set('roostergroep', roostergroep);
+    if (opleiding) params.set('opleiding', opleiding);
+    const queryString = params.toString();
+    window.history.replaceState({}, '', queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname);
 }
 
 // Event listeners
 searchInput.addEventListener('input', applyFilters);
 [keuzedeelFilter, roostergroepFilter, opleidingFilter].forEach(el => el.addEventListener('change', applyFilters));
 
+resetBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    keuzedeelFilter.selectedIndex = 0;
+    roostergroepFilter.selectedIndex = 0;
+    opleidingFilter.selectedIndex = 0;
+    applyFilters();
+});
+
 // Toggle inschrijvingen
 document.querySelectorAll('.toggle-inschrijvingen').forEach(btn => {
     btn.onclick = () => {
-        const container = btn.closest('.student-row').querySelector('.inschrijvingen-container');
-        container.style.maxHeight = container.style.maxHeight ? null : container.scrollHeight + 'px';
+        const currentContainer = btn.closest('.student-row').querySelector('.inschrijvingen-container');
+
+        // Collapse any other open containers
+        document.querySelectorAll('.inschrijvingen-container').forEach(container => {
+            if (container !== currentContainer) {
+                container.style.maxHeight = null;
+            }
+        });
+
+        // Toggle current container
+        currentContainer.style.maxHeight = currentContainer.style.maxHeight 
+            ? null 
+            : currentContainer.scrollHeight + 'px';
     };
 });
 
-// Apply filters on page load (voor URL query)
-window.addEventListener('DOMContentLoaded', applyFilters);
+
+// Initialize filters from URL
+window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('search')) searchInput.value = urlParams.get('search');
+    if (urlParams.has('keuzedeel')) keuzedeelFilter.value = urlParams.get('keuzedeel');
+    if (urlParams.has('roostergroep')) roostergroepFilter.value = urlParams.get('roostergroep');
+    if (urlParams.has('opleiding')) opleidingFilter.value = urlParams.get('opleiding');
+    applyFilters();
+});
 </script>
 @endsection

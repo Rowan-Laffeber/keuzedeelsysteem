@@ -10,55 +10,54 @@ class StudentController extends Controller
 {
     public function index(Request $request)
     {
-        // Begin query met eager loading
         $query = Student::with(['user', 'inschrijvingen.keuzedeel']);
 
-        // --- Search filter: naam, studentnummer, keuzedeel title ---
+        // --- Search filter: name, studentnummer, keuzedeel title ---
         if ($request->filled('search')) {
             $search = strtolower($request->search);
 
             $query->where(function($q) use ($search) {
-                // Zoek in naam/email
                 $q->whereHas('user', function($q2) use ($search) {
                     $q2->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
                        ->orWhereRaw('LOWER(email) LIKE ?', ["%{$search}%"]);
                 })
-                // Of studentnummer
                 ->orWhere('studentnummer', 'LIKE', "%{$search}%")
-                // Of inschrijvingen -> keuzedeel title
                 ->orWhereHas('inschrijvingen.keuzedeel', function($q3) use ($search) {
                     $q3->whereRaw('LOWER(title) LIKE ?', ["%{$search}%"]);
                 });
             });
         }
 
-        // --- Filter op keuzedeel ID ---
+        // --- Filter on keuzedeel ID ---
         if ($request->filled('keuzedeel')) {
             $keuzedeel = $request->keuzedeel;
             $query->whereHas('inschrijvingen', fn($q) => $q->where('keuzedeel_id', $keuzedeel));
         }
 
-        // --- Filter op roostergroep ---
+        // --- Filter on roostergroep ---
         if ($request->filled('roostergroep')) {
             $query->where('roostergroep', $request->roostergroep);
         }
 
-        // --- Filter op opleiding ---
+        // --- Filter on opleiding ---
         if ($request->filled('opleiding')) {
             $query->where('opleidingsnummer', $request->opleiding);
         }
 
-        // --- Haal studenten op ---
+        // --- Only students with at least one inschrijving? Optional ---
+        // $query->has('inschrijvingen');
+
+        // --- Execute query ---
         $students = $query->get();
 
-        // --- Keuzedelen voor dropdown: alleen parent_id != null ---
+        // --- Keuzedelen for dropdown: only where parent_id is not null ---
         $keuzedelen = Keuzedeel::whereNotNull('parent_id')->get();
 
-        // --- Unieke roostergroepen en opleidingen voor filters ---
+        // --- Unique roostergroepen and opleidingen for filters ---
         $roostergroepen = Student::distinct()->pluck('roostergroep');
         $opleidingen = Student::distinct()->pluck('opleidingsnummer');
 
-        // --- AJAX response ---
+        // --- AJAX response
         if ($request->ajax()) {
             $html = '';
             foreach ($students as $student) {
@@ -67,7 +66,7 @@ class StudentController extends Controller
             return $html;
         }
 
-        // --- Return view ---
+        // --- Return full view ---
         return view('studentoverzicht', compact('students', 'keuzedelen', 'roostergroepen', 'opleidingen'));
     }
 }
