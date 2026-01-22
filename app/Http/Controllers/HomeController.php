@@ -81,9 +81,11 @@ class HomeController extends Controller
             $delen = collect([$keuzedeel]);
         }
 
-        // Load enrollment counts for each deel
+        // Load enrollment counts and properties for each deel
         $delen->each(function ($deel) {
             $deel->load('bevestigdeStudenten');
+            // Ensure individual properties are loaded
+            $deel->refreshEnrollmentCount();
         });
 
         // Check enrollment status for each deel

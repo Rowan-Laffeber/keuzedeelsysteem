@@ -21,6 +21,7 @@ class Inschrijving extends Model
         'status',
         'opmerkingen',
         'inschrijfdatum',
+        'priority', // 1 = first choice, 2 = second choice, 3 = third choice
     ];
 
     protected $casts = [
@@ -51,6 +52,26 @@ class Inschrijving extends Model
     public function scopeCancelled($query)
     {
         return $query->where('status', 'cancelled');
+    }
+
+    public function scopeFirstChoice($query)
+    {
+        return $query->where('priority', 1);
+    }
+
+    public function scopeSecondChoice($query)
+    {
+        return $query->where('priority', 2);
+    }
+
+    public function scopeThirdChoice($query)
+    {
+        return $query->where('priority', 3);
+    }
+
+    public function scopeWithPriority($query)
+    {
+        return $query->whereNotNull('priority');
     }
 
     // Helper methods

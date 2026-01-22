@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\Keuzedeel;
 use App\Models\Inschrijving;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class InschrijvingController extends Controller
@@ -14,9 +15,19 @@ class InschrijvingController extends Controller
         if ($user->role !== 'student') {
             return redirect()->route('home')->with('error', 'Alleen studenten mogen deze pagina bekijken.');
         }
+
         $keuzedeelId = $request->input('keuzedeel_id');
         $student = auth()->user()->student;
         $keuzedeel = Keuzedeel::findOrFail($keuzedeelId);
+
+        // Check if student has made all 3 choices first
+        $studentChoices = $student->inschrijvingen()
+            ->withPriority()
+            ->count();
+        if ($studentChoices < 3) {
+            return redirect()->route('more-options.index')
+                ->with('error', 'Je moet eerst 3 keuzes opgeven (1e, 2e, en 3e keuze) voordat je je kunt inschrijven.');
+        }
 
         // Check if already enrolled
         $existingInschrijving = $student->inschrijvingen()
@@ -48,7 +59,7 @@ class InschrijvingController extends Controller
             ]);
         }
 
-        return redirect()->route('more-options.index')->with('success', 'Succesvol ingeschreven! Kies nu je overige keuzes.');
+        return back()->with('success', 'Succesvol ingeschreven! Bekijk je profiel voor al je ingeschreven keuzedelen.');
     }
 
     public function destroy(Request $request)
@@ -72,5 +83,162 @@ class InschrijvingController extends Controller
         $keuzedeel->refreshEnrollmentCount();
 
         return back()->with('success', 'Succesvol uitgeschreven!');
+    }
+
+    // MoreOptions methods
+    public function moreOptionsIndex()
+    {
+        $user = Auth::user();
+        
+        if ($user->role !== 'student') {
+            return redirect()->route('home')->with('error', 'Alleen studenten mogen keuzes opgeven.');
+        }
+
+        $student = $user->student;
+        
+        // Get student's current choices
+        $choices = $student->inschrijvingen()
+            ->withPriority()
+            ->with('keuzedeel')
+            ->orderBy('priority')
+            ->get()
+            ->keyBy('priority');
+
+        // Get all available keuzedelen for dropdowns
+        $availableKeuzedelen = Keuzedeel::where('is_open', true)
+            ->orderBy('title')
+            ->get();
+
+        // Get student's current enrollments to exclude them
+        $enrolledKeuzedeelIds = $student->bevestigdeKeuzedelen()
+            ->pluck('keuzedelen.id')
+            ->toArray();
+
+        // Filter out already enrolled keuzedelen
+        $availableKeuzedelen = $availableKeuzedelen
+            ->reject(function ($keuzedeel) use ($enrolledKeuzedeelIds) {
+                return in_array($keuzedeel->id, $enrolledKeuzedeelIds);
+            });
+
+        return view('more-options', compact('choices', 'availableKeuzedelen'));
+    }
+
+    public function moreOptionsStore(Request $request)
+    {
+        $user = Auth::user();
+        
+        if ($user->role !== 'student') {
+            return redirect()->route('home')->with('error', 'Alleen studenten mogen keuzes opgeven.');
+        }
+
+        $student = $user->student;
+
+        // Validate the request
+        $request->validate([
+            'first_choice' => 'required|exists:keuzedelen,id',
+            'second_choice' => 'required|exists:keuzedelen,id|different:first_choice',
+            'third_choice' => 'required|exists:keuzedelen,id|different:first_choice,second_choice',
+        ]);
+
+        // Clear existing choices
+        $student->inschrijvingen()->withPriority()->delete();
+
+        // Create new choices
+        $choices = [
+            1 => $request->input('first_choice'),
+            2 => $request->input('second_choice'),
+            3 => $request->input('third_choice'),
+        ];
+
+        foreach ($choices as $priority => $keuzedeelId) {
+            Inschrijving::create([
+                'id' => Str::uuid(),
+                'student_id' => $student->id,
+                'keuzedeel_id' => $keuzedeelId,
+                'status' => 'pending',
+                'priority' => $priority,
+            ]);
+        }
+
+        return redirect()->route('more-options.index')
+            ->with('success', 'Je keuzes zijn succesvol opgeslagen!');
+    }
+
+    public function processChoices()
+    {
+        // This method would be called by an admin or scheduled job
+        // to process all pending choices and assign students
+        
+        $pendingChoices = Inschrijving::with(['student', 'keuzedeel'])
+            ->pending()
+            ->withPriority()
+            ->orderBy('priority')
+            ->get()
+            ->groupBy('student_id');
+
+        foreach ($pendingChoices as $studentId => $choices) {
+            // Only process if student has made all 3 choices
+            if ($choices->count() === 3) {
+                $this->assignStudentToBestChoice($choices);
+            }
+        }
+    }
+
+    private function assignStudentToBestChoice($choices)
+    {
+        foreach ($choices as $choice) {
+            $keuzedeel = $choice->keuzedeel;
+            
+            // Check if keuzedeel meets minimum requirements
+            if ($this->meetsMinimumRequirements($keuzedeel)) {
+                // Assign student to this keuzedeel
+                $this->assignStudent($choice->student, $keuzedeel);
+                
+                // Mark this choice as assigned
+                $choice->status = 'confirmed';
+                $choice->save();
+                
+                // Reject other choices for this student
+                $this->rejectOtherChoices($choice->student_id, $choice->priority);
+                return;
+            }
+        }
+        
+        // If no choice meets requirements, mark all as rejected
+        foreach ($choices as $choice) {
+            $choice->status = 'cancelled';
+            $choice->save();
+        }
+    }
+
+    private function meetsMinimumRequirements($keuzedeel)
+    {
+        // Check if keuzedeel has minimum students
+        $currentEnrollment = $keuzedeel->ingeschreven_count;
+        $minimumRequired = $keuzedeel->minimum_studenten ?? 1;
+        
+        return $currentEnrollment >= $minimumRequired;
+    }
+
+    private function assignStudent($student, $keuzedeel)
+    {
+        // The enrollment record already exists, just confirm it
+        $inschrijving = Inschrijving::where('student_id', $student->id)
+            ->where('keuzedeel_id', $keuzedeel->id)
+            ->first();
+        
+        if ($inschrijving) {
+            $inschrijving->status = 'confirmed';
+            $inschrijving->inschrijfdatum = now();
+            $inschrijving->save();
+        }
+    }
+
+    private function rejectOtherChoices($studentId, $assignedPriority)
+    {
+        Inschrijving::where('student_id', $studentId)
+            ->withPriority()
+            ->where('priority', '!=', $assignedPriority)
+            ->update(['status' => 'cancelled']);
     }
 }

@@ -77,7 +77,18 @@
 </section>
 
 {{-- Forms and buttons --}}
-<div class="flex flex-col mt-4 gap-4" id="form-container">
+<div class="flex justify-between mt-4 space-x-4" id="form-container">
+    <!-- Form will be dynamically updated by JavaScript -->
+    
+    @if(auth()->user()->role === 'student')
+        @if(auth()->user()->student->bevestigdeKeuzedelen()->count() > 0)
+            <a href="{{ route('more-options.index') }}" 
+               class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded">
+                📋 Keuzes Opgeven
+            </a>
+        @endif
+    @endif
+
     @foreach($delen as $index => $deel)
     <div class="deel-form" data-id="{{ $deel->id }}" style="display: {{ $index === 0 ? 'block' : 'none' }}">
         
@@ -149,6 +160,7 @@ $js_beschrijvingen = $delen->pluck('description');
 $js_actief = $delen->pluck('actief');
 $js_start = $delen->pluck('start_inschrijving');
 $js_eind = $delen->pluck('eind_inschrijving');
+$js_maximum = $delen->pluck('maximum_studenten');
 @endphp
 
 <script>
@@ -168,6 +180,7 @@ const beschrijvingen = @json($js_beschrijvingen);
 const actief = @json($js_actief);
 const startData = @json($js_start);
 const eindData = @json($js_eind);
+const maximums = @json($js_maximum);
 
 function selectDeelById(id) {
     deelButtons.forEach((btn, i) => {
