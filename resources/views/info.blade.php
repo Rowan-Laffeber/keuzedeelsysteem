@@ -19,6 +19,7 @@
                 type="button"
                 class="w-44 rounded shadow {{ $status->color() }} flex flex-col items-center p-2 deel-btn {{ $index !== 0 ? 'opacity-60' : 'opacity-100' }}"
                 data-id="{{ $deel->id }}"
+                data-index="{{ $index }}"
             >
                 <div class="text-center font-semibold mb-2 {{ $status->textColor() }}">
                     {{ $status->text() }}
@@ -58,11 +59,11 @@
 
             {{-- Date box --}}
             <div id="datum-box"
-                 class="border px-4 py-2 rounded bg-white text-sm text-gray-800 w-56">
-                <div><strong>Inschrijving:</strong></div>
+                 class="border px-4 py-2 rounded font-semibold text-center w-56 bg-white">
+                <div><p>Inschrijvingsperiode:</p></div>
                 <div>
                     {{ \Carbon\Carbon::parse($delen[0]->start_inschrijving)->format('d-m-Y') }}
-                    – {{ \Carbon\Carbon::parse($delen[0]->eind_inschrijving)->format('d-m-Y') }}
+                    / {{ \Carbon\Carbon::parse($delen[0]->eind_inschrijving)->format('d-m-Y') }}
                 </div>
             </div>
         </div>
@@ -75,17 +76,48 @@
     </div>
 </section>
 
+{{-- Forms and buttons --}}
 <div class="flex flex-col mt-4 gap-4" id="form-container">
-@foreach($delen as $index => $deel)
-<div class="deel-form" data-id="{{ $deel->id }}" style="display: {{ $index === 0 ? 'block' : 'none' }}">
-    @if(in_array(auth()->user()->role, ['admin','docent']))
-        <a href="{{ route('keuzedeel.edit', $deel->id) }}"
-           class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded inline-block">
-            Pas info aan
-        </a>
-    @endif
-</div>
-@endforeach
+    @foreach($delen as $index => $deel)
+    <div class="deel-form" data-id="{{ $deel->id }}" style="display: {{ $index === 0 ? 'block' : 'none' }}">
+        
+        {{-- Student buttons --}}
+        @if(auth()->user()->role === 'student')
+            @if($deel->is_ingeschreven)
+                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-3">
+                    <strong>Al ingeschreven!</strong> Je bent al ingeschreven voor dit keuzedeel.
+                </div>
+                <form method="POST" action="{{ route('uitschrijven.destroy') }}">
+                    @csrf
+                    <input type="hidden" name="keuzedeel_id" value="{{ $deel->id }}">
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded">
+                        Schrijf uit
+                    </button>
+                </form>
+            @elseif(($deel->ingeschreven_count ?? 0) >= ($deel->maximum_studenten ?? 30))
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    <strong>Vol!</strong> Dit keuzedeel zit helaas vol.
+                </div>
+            @else
+                <form method="POST" action="{{ route('inschrijven.store') }}">
+                    @csrf
+                    <input type="hidden" name="keuzedeel_id" value="{{ $deel->id }}">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
+                        Schrijf in
+                    </button>
+                </form>
+            @endif
+        @endif
+
+        {{-- Admin / Docent buttons --}}
+        @if(in_array(auth()->user()->role, ['admin','docent']))
+            <a href="{{ route('keuzedeel.edit', $deel->id) }}"
+               class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded inline-block mt-2">
+                Pas info aan
+            </a>
+        @endif
+    </div>
+    @endforeach
 </div>
 
 {{-- Actief modal --}}
@@ -153,7 +185,7 @@ function selectDeelById(id) {
                 'px-4 py-2 rounded text-white font-semibold flex items-center ' +
                 (actief[i] ? 'bg-green-600' : 'bg-red-600');
 
-            datumBox.innerHTML = `<div><strong>Inschrijving:</strong></div><div>${startData[i]} – ${eindData[i]}</div>`;
+            datumBox.innerHTML = `<div><p>inschrijvingsperiode:</p></div><div>${startData[i]} / ${eindData[i]}</div>`;
 
             modalIdSpan.textContent = id;
             actiefForm.action = `/keuzedeel/${id}/toggle-actief`;

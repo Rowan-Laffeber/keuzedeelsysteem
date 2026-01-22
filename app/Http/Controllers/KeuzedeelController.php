@@ -195,7 +195,7 @@ class KeuzedeelController extends Controller
             ->with('subdeel_id', $keuzedeel->id); // flash subdeel ID
 
     }
-    public function toggleActief(Keuzedeel $keuzedeel)
+    public function toggleActief(Request $request, Keuzedeel $keuzedeel)
     {
         $user = auth()->user();
         if ($user->role !== 'admin') {
