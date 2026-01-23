@@ -22,17 +22,24 @@ class InschrijvingController extends Controller
 
         // Check if student has made all 3 choices first
         $studentChoices = $student->inschrijvingen()
-            ->withPriority()
+            ->where('status', 'pending')
+            ->whereNotNull('priority')
             ->count();
+        
+        // Debug logging
+        \Log::info('Student ID: ' . $student->id);
+        \Log::info('Student choices count: ' . $studentChoices);
+        \Log::info('All student inschrijvingen: ' . $student->inschrijvingen()->count());
+        
         if ($studentChoices < 3) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'status' => 'needs_choices',
-                    'message' => 'Je moet eerst 3 keuzes opgeven (1e, 2e, en 3e keuze) voordat je je kunt inschrijven.'
+                    'message' => 'Je moet eerst 3 keuzes opgeven (1e, 2e, en 3e keuze) voordat je je kunt inschrijven. (Current: ' . $studentChoices . '/3)'
                 ]);
             }
             return redirect()->route('more-options.index')
-                ->with('error', 'Je moet eerst 3 keuzes opgeven (1e, 2e, en 3e keuze) voordat je je kunt inschrijven.');
+                ->with('error', 'Je moet eerst 3 keuzes opgeven (1e, 2e, en 3e keuze) voordat je je kunt inschrijven. (Current: ' . $studentChoices . '/3)');
         }
 
         // Check if already enrolled
@@ -82,13 +89,29 @@ class InschrijvingController extends Controller
         $keuzedeelId = $request->input('keuzedeel_id');
         $student = auth()->user()->student;
         
+        \Log::info('Uitschrijven attempt - Student ID: ' . $student->id . ', Keuzedeel ID: ' . $keuzedeelId);
+        
         $inschrijving = $student->inschrijvingen()
             ->where('keuzedeel_id', $keuzedeelId)
-            ->where('status', 'confirmed')
+            ->whereIn('status', ['confirmed', 'pending'])  // Look for both confirmed and pending
             ->first();
 
+        \Log::info('Found inschrijving: ' . ($inschrijving ? 'Yes' : 'No'));
+        if ($inschrijving) {
+            \Log::info('Inschrijving status: ' . $inschrijving->status);
+        }
+
         if (!$inschrijving) {
-            return back()->with('error', 'Geen actieve inschrijving gevonden.');
+            \Log::info('No confirmed inschrijving found, checking all statuses');
+            $allInschrijvingen = $student->inschrijvingen()
+                ->where('keuzedeel_id', $keuzedeelId)
+                ->get();
+            \Log::info('All inschrijvingen for this keuzedeel: ' . $allInschrijvingen->count());
+            foreach ($allInschrijvingen as $insch) {
+                \Log::info('Status: ' . $insch->status);
+            }
+            
+            return back()->with('error', 'Geen inschrijving gevonden om uit te schrijven.');
         }
 
         $inschrijving->cancel();
@@ -96,6 +119,8 @@ class InschrijvingController extends Controller
         // Clear any cached counts
         $keuzedeel = $inschrijving->keuzedeel;
         $keuzedeel->refreshEnrollmentCount();
+
+        \Log::info('Successfully cancelled inschrijving');
 
         return back()->with('success', 'Succesvol uitgeschreven!');
     }
@@ -113,7 +138,8 @@ class InschrijvingController extends Controller
         
         // Get student's current choices
         $choices = $student->inschrijvingen()
-            ->withPriority()
+            ->where('status', 'pending')
+            ->whereNotNull('priority')
             ->with('keuzedeel')
             ->orderBy('priority')
             ->get()
@@ -157,7 +183,10 @@ class InschrijvingController extends Controller
         ]);
 
         // Clear existing choices
-        $student->inschrijvingen()->withPriority()->delete();
+        $student->inschrijvingen()
+            ->where('status', 'pending')
+            ->whereNotNull('priority')
+            ->delete();
 
         // Create new choices
         $choices = [
@@ -166,14 +195,18 @@ class InschrijvingController extends Controller
             3 => $request->input('third_choice'),
         ];
 
+        \Log::info('Creating choices for student: ' . $student->id);
+        \Log::info('Choices data: ' . json_encode($choices));
+
         foreach ($choices as $priority => $keuzedeelId) {
-            Inschrijving::create([
+            $inschrijving = Inschrijving::create([
                 'id' => Str::uuid(),
                 'student_id' => $student->id,
                 'keuzedeel_id' => $keuzedeelId,
                 'status' => 'pending',
                 'priority' => $priority,
             ]);
+            \Log::info('Created inschrijving: ' . $inschrijving->id . ' with priority ' . $priority);
         }
 
         // Return JSON response for AJAX requests
