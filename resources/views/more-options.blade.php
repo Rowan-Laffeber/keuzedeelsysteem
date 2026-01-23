@@ -163,6 +163,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 option.disabled = false;
             }
         });
+        
+        // Clear duplicate selections
+        if (firstChoice.value === secondChoice.value) secondChoice.value = '';
+        if (firstChoice.value === thirdChoice.value) thirdChoice.value = '';
+        if (secondChoice.value === thirdChoice.value) thirdChoice.value = '';
     }
 
     firstChoice.addEventListener('change', updateOptions);

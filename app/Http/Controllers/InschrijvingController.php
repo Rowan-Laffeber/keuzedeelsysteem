@@ -25,6 +25,12 @@ class InschrijvingController extends Controller
             ->withPriority()
             ->count();
         if ($studentChoices < 3) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'status' => 'needs_choices',
+                    'message' => 'Je moet eerst 3 keuzes opgeven (1e, 2e, en 3e keuze) voordat je je kunt inschrijven.'
+                ]);
+            }
             return redirect()->route('more-options.index')
                 ->with('error', 'Je moet eerst 3 keuzes opgeven (1e, 2e, en 3e keuze) voordat je je kunt inschrijven.');
         }
@@ -56,6 +62,15 @@ class InschrijvingController extends Controller
                 'student_id' => $student->id,
                 'keuzedeel_id' => $keuzedeelId,
                 'status' => 'confirmed',
+            ]);
+        }
+
+        // Return JSON response for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Succesvol ingeschreven! Bekijk je profiel voor al je ingeschreven keuzedelen.',
+                'redirect' => route('home')
             ]);
         }
 
@@ -104,8 +119,9 @@ class InschrijvingController extends Controller
             ->get()
             ->keyBy('priority');
 
-        // Get all available keuzedelen for dropdowns
+        // Get all available keuzedelen for dropdowns (child keuzedelen only)
         $availableKeuzedelen = Keuzedeel::where('is_open', true)
+            ->whereNotNull('parent_id')  // Only get child keuzedelen
             ->orderBy('title')
             ->get();
 
@@ -157,6 +173,15 @@ class InschrijvingController extends Controller
                 'keuzedeel_id' => $keuzedeelId,
                 'status' => 'pending',
                 'priority' => $priority,
+            ]);
+        }
+
+        // Return JSON response for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Je keuzes zijn succesvol opgeslagen!',
+                'redirect' => route('home')
             ]);
         }
 

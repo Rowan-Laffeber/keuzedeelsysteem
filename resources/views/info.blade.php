@@ -110,7 +110,7 @@
                     <strong>Vol!</strong> Dit keuzedeel zit helaas vol.
                 </div>
             @else
-                <form method="POST" action="{{ route('inschrijven.store') }}">
+                <form method="POST" action="{{ route('inschrijven.store') }}" id="enrollment-form">
                     @csrf
                     <input type="hidden" name="keuzedeel_id" value="{{ $deel->id }}">
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
@@ -149,6 +149,70 @@
                     class="px-4 py-2 border rounded hover:bg-gray-200">Annuleren</button>
             <button type="submit"
                     class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">Bevestigen</button>
+        </form>
+    </div>
+</div>
+
+{{-- 3-Choice Modal --}}
+<div id="choices-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded shadow-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+        <h2 class="text-2xl font-bold mb-4">📋 Maak je 3 keuzes</h2>
+        <p class="text-gray-600 mb-6">Voordat je je kunt inschrijven, moet je 3 keuzes opgeven (1e, 2e, en 3e keuze).</p>
+        
+        <form method="POST" action="{{ route('more-options.store') }}" id="choices-form">
+            @csrf
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {{-- 1e Keuze --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        1e Keuze <span class="text-red-500">*</span>
+                    </label>
+                    <select name="first_choice" id="first_choice" required 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Kies een keuzedeel...</option>
+                    </select>
+                </div>
+                
+                {{-- 2e Keuze --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        2e Keuze <span class="text-red-500">*</span>
+                    </label>
+                    <select name="second_choice" id="second_choice" required 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Kies een keuzedeel...</option>
+                    </select>
+                </div>
+                
+                {{-- 3e Keuze --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        3e Keuze <span class="text-red-500">*</span>
+                    </label>
+                    <select name="third_choice" id="third_choice" required 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Kies een keuzedeel...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-6">
+                <p class="text-sm text-blue-800">
+                    <strong>Let op:</strong> Geselecteerde keuzedelen worden automatisch uit de andere dropdowns verwijderd om dubbele selecties te voorkomen.
+                </p>
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeChoicesModal()" 
+                        class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                    Annuleren
+                </button>
+                <button type="submit" 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Keuzes Opslaan
+                </button>
+            </div>
         </form>
     </div>
 </div>
@@ -249,6 +313,191 @@ function closeActiefModal() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 }
+
+// 3-Choice Modal Functions
+function openChoicesModal() {
+    document.getElementById('choices-modal').classList.remove('hidden');
+    document.getElementById('choices-modal').classList.add('flex');
+    loadAvailableKeuzedelen();
+}
+
+function closeChoicesModal() {
+    document.getElementById('choices-modal').classList.add('hidden');
+    document.getElementById('choices-modal').classList.remove('flex');
+}
+
+function loadAvailableKeuzedelen() {
+    // Load available keuzedelen via AJAX
+    fetch('{{ route("more-options.index") }}')
+        .then(response => response.text())
+        .then(html => {
+            // Extract keuzedelen data from the response
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const options = doc.querySelectorAll('select option');
+            
+            const selects = ['first_choice', 'second_choice', 'third_choice'];
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                if (select) {
+                    // Clear existing options except the first one
+                    select.innerHTML = '<option value="">Kies een keuzedeel...</option>';
+                    
+                    // Add available options
+                    options.forEach(option => {
+                        if (option.value) {
+                            const newOption = document.createElement('option');
+                            newOption.value = option.value;
+                            newOption.textContent = option.textContent;
+                            select.appendChild(newOption);
+                        }
+                    });
+                }
+            });
+        })
+        .catch(error => console.error('Error loading keuzedelen:', error));
+}
+
+// Handle choices form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const choicesForm = document.getElementById('choices-form');
+    if (choicesForm) {
+        choicesForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Close modal and show success
+                    closeChoicesModal();
+                    
+                    // Show success message
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4';
+                    successDiv.innerHTML = `<strong>${data.message}</strong>`;
+                    
+                    // Insert at the top of the main content
+                    const mainContent = document.querySelector('main') || document.body;
+                    mainContent.insertBefore(successDiv, mainContent.firstChild);
+                    
+                    // Remove after 5 seconds
+                    setTimeout(() => successDiv.remove(), 5000);
+                    
+                    // Reload page after a short delay to update enrollment status
+                    setTimeout(() => location.reload(), 2000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Fallback to normal form submission
+                this.submit();
+            });
+        });
+    }
+});
+
+// Handle enrollment form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const enrollmentForm = document.getElementById('enrollment-form');
+    if (enrollmentForm) {
+        enrollmentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'needs_choices') {
+                    // Show the choices modal
+                    openChoicesModal();
+                } else if (data.redirect) {
+                    // Redirect on success
+                    window.location.href = data.redirect;
+                } else {
+                    // Reload page on success
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Fallback to normal form submission
+                this.submit();
+            });
+        });
+    }
+});
+
+// Prevent duplicate selections
+document.addEventListener('DOMContentLoaded', function() {
+    const selects = ['first_choice', 'second_choice', 'third_choice'];
+    
+    selects.forEach(function(selectId) {
+        const select = document.getElementById(selectId);
+        if (select) {
+            select.addEventListener('change', function() {
+                const selectedValue = this.value;
+                
+                // Update all other selects to hide/disable the selected option
+                selects.forEach(function(otherId) {
+                    if (otherId !== selectId) {
+                        const otherSelect = document.getElementById(otherId);
+                        
+                        // Re-enable all options first
+                        Array.from(otherSelect.options).forEach(option => {
+                            if (option.value !== '') {
+                                option.disabled = false;
+                                option.style.display = 'block';
+                            }
+                        });
+                        
+                        // Then disable the currently selected option in other selects
+                        if (selectedValue !== '') {
+                            Array.from(otherSelect.options).forEach(option => {
+                                if (option.value === selectedValue) {
+                                    option.disabled = true;
+                                    option.style.display = 'none';
+                                }
+                            });
+                        }
+                        
+                        // If the other select had the same value selected, clear it
+                        if (otherSelect.value === selectedValue) {
+                            otherSelect.value = '';
+                        }
+                    }
+                });
+            });
+        }
+    });
+    
+    // Initial setup to disable already selected options
+    selects.forEach(function(selectId) {
+        const select = document.getElementById(selectId);
+        if (select && select.value !== '') {
+            // Trigger change event to apply the logic
+            select.dispatchEvent(new Event('change'));
+        }
+    });
+});
+
 </script>
 
 @endsection
