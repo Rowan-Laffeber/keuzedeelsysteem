@@ -4,27 +4,40 @@
 
 @section('content')
 
+@php
+use Carbon\Carbon;
+
+$now = Carbon::now();
+$student = auth()->user()->student ?? null;
+$activeInschrijvingen = $student
+    ? $student->inschrijvingen()
+        ->whereIn('status', ['confirmed','pending'])
+        ->pluck('priority')
+        ->map(fn($p) => (int)$p) // <-- force integers
+        ->toArray()
+    : [];
+$activeCount = count($activeInschrijvingen);
+@endphp
+
+
 <h1 id="hoofdtitel" class="text-3xl font-bold mb-4">
     {{ $keuzedeel->title }} -
     <span id="huidig-deel-titel">{{ $delen[0]->id ?? '' }}</span>
 </h1>
 
 <div class="flex items-start gap-6 mb-6">
-
+    {{-- Deel buttons --}}
     <div class="flex gap-6 flex-wrap">
         @foreach($delen as $index => $deel)
             @php $status = $deel->status_helper; @endphp
-
             <button
                 type="button"
                 class="w-44 rounded shadow {{ $status->color() }} flex flex-col items-center p-2 deel-btn {{ $index !== 0 ? 'opacity-60' : 'opacity-100' }}"
                 data-id="{{ $deel->id }}"
-                data-index="{{ $index }}"
             >
                 <div class="text-center font-semibold mb-2 {{ $status->textColor() }}">
                     {{ $status->text() }}
                 </div>
-
                 <div class="bg-white p-4 rounded w-full text-center font-bold text-lg">
                     {{ $deel->id }}
                 </div>
@@ -32,9 +45,8 @@
         @endforeach
     </div>
 
+    {{-- Info boxes --}}
     <div class="flex flex-col gap-3 ml-auto items-end">
-
-        {{-- Aantal ingeschreven --}}
         <div id="aantal-ingeschreven"
              class="border px-4 py-2 rounded font-semibold text-center w-56 bg-white">
             Aantal ingeschreven:<br>
@@ -42,7 +54,6 @@
         </div>
 
         <div class="flex gap-3 items-stretch">
-            {{-- Toggle button --}}
             @if(auth()->user()->role === 'admin')
                 <button onclick="openActiefModal()"
                         class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded font-semibold">
@@ -50,14 +61,12 @@
                 </button>
             @endif
 
-            {{-- Actief status --}}
             <div id="actief-status-box"
                  class="px-4 py-2 rounded text-white font-semibold flex items-center
                  {{ $delen[0]->actief ? 'bg-green-600' : 'bg-red-600' }}">
                 {{ $delen[0]->actief ? 'Actief' : 'Inactief' }}
             </div>
 
-            {{-- Date box --}}
             <div id="datum-box"
                  class="border px-4 py-2 rounded font-semibold text-center w-56 bg-white">
                 <div><p>Inschrijvingsperiode:</p></div>
@@ -70,216 +79,189 @@
     </div>
 </div>
 
+{{-- Description --}}
 <section class="mb-4 p-4 border rounded bg-gray-50 text-gray-800">
     <div id="deel-beschrijving">
         {{ $delen[0]->description ?? '' }}
     </div>
 </section>
 
-{{-- Forms and buttons --}}
-<div class="flex justify-between mt-4 space-x-4" id="form-container">
-    <!-- Form will be dynamically updated by JavaScript -->
-    
+{{-- Forms --}}
+<div class="flex flex-col mt-4 gap-4" id="form-container">
+@foreach($delen as $index => $deel)
+<div class="deel-form" data-id="{{ $deel->id }}" style="display: {{ $index === 0 ? 'block' : 'none' }}">
+
+    @php
+        $inPeriod = $now->between($deel->start_inschrijving, $deel->eind_inschrijving);
+        $canEnroll = $student && $activeCount < 3 && !$deel->is_ingeschreven && $inPeriod && $deel->actief;
+    @endphp
+
+    {{-- STUDENT --}}
     @if(auth()->user()->role === 'student')
-        @if(auth()->user()->student->bevestigdeKeuzedelen()->count() > 0)
-            <a href="{{ route('more-options.index') }}" 
-               class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded">
-                📋 Keuzes Opgeven
-            </a>
+        @php
+            $reason = '';
+            if(!$deel->actief) $reason = 'Keuzedeel niet actief';
+            elseif(!$inPeriod) $reason = 'Buiten inschrijvingsperiode';
+            elseif($activeCount >= 3) $reason = 'Maximum inschrijvingen bereikt';
+        @endphp
+
+        @if($deel->is_ingeschreven)
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-2">
+                Je bent al ingeschreven voor dit keuzedeel.
+            </div>
+
+            <form method="POST" action="{{ route('uitschrijven.destroy') }}">
+                @csrf
+                <input type="hidden" name="keuzedeel_id" value="{{ $deel->id }}">
+                <button type="submit"
+                        class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded">
+                    Schrijf uit
+                </button>
+            </form>
+
+        @else
+            <div class="flex items-center gap-2">
+                <button
+                    onclick="openInschrijvingModal('{{ $deel->id }}')"
+                    class="px-6 py-2 rounded text-white {{ $canEnroll ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed' }}"
+                    {{ $canEnroll ? '' : 'disabled' }}>
+                    Schrijf in
+                </button>
+                @if(!$canEnroll)
+                    <span class="text-gray-600 italic text-sm">{{ $reason }}</span>
+                @endif
+            </div>
         @endif
     @endif
 
-    @foreach($delen as $index => $deel)
-    <div class="deel-form" data-id="{{ $deel->id }}" style="display: {{ $index === 0 ? 'block' : 'none' }}">
-        
-        {{-- Student buttons --}}
-        @if(auth()->user()->role === 'student')
-            @if($deel->is_ingeschreven)
-                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-3">
-                    <strong>Al ingeschreven!</strong> Je bent al ingeschreven voor dit keuzedeel.
-                </div>
-                <form method="POST" action="{{ route('uitschrijven.destroy') }}">
-                    @csrf
-                    <input type="hidden" name="keuzedeel_id" value="{{ $deel->id }}">
-                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded">
-                        Schrijf uit
-                    </button>
-                </form>
-            @elseif(($deel->ingeschreven_count ?? 0) >= ($deel->maximum_studenten ?? 30))
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                    <strong>Vol!</strong> Dit keuzedeel zit helaas vol.
-                </div>
-            @else
-                <form method="POST" action="{{ route('inschrijven.store') }}" id="enrollment-form">
-                    @csrf
-                    <input type="hidden" name="keuzedeel_id" value="{{ $deel->id }}">
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">
-                        Schrijf in
-                    </button>
-                </form>
-            @endif
-        @endif
+    {{-- ADMIN / DOCENT --}}
+    @if(in_array(auth()->user()->role, ['admin','docent']))
+        <a href="{{ route('keuzedeel.edit', $deel->id) }}"
+           class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded inline-block mt-2">
+            Pas info aan
+        </a>
+    @endif
 
-        {{-- Admin / Docent buttons --}}
-        @if(in_array(auth()->user()->role, ['admin','docent']))
-            <a href="{{ route('keuzedeel.edit', $deel->id) }}"
-               class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded inline-block mt-2">
-                Pas info aan
-            </a>
-        @endif
-    </div>
-    @endforeach
+</div>
+@endforeach
 </div>
 
-{{-- Actief modal --}}
+{{-- Student priority modal --}}
+@if(auth()->user()->role === 'student')
+<div id="inschrijving-modal"
+     class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded shadow-lg p-6 w-96">
+        <h2 class="text-xl font-bold mb-4">Inschrijven</h2>
+
+        <form method="POST" action="{{ route('inschrijven.store') }}">
+            @csrf
+            <input type="hidden" name="keuzedeel_id" id="inschrijving-keuzedeel-id">
+
+            <label class="block font-semibold mb-1">Prioriteit</label>
+            <select name="priority" id="priority-select" required class="border rounded w-full px-2 py-1 mb-3">
+                <option value="">Kies prioriteit</option>
+            </select>
+
+            <label class="block font-semibold mb-1">Opmerkingen</label>
+            <textarea name="opmerkingen"
+                      class="border rounded w-full px-2 py-1 mb-4"
+                      rows="2"></textarea>
+
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeInschrijvingModal()"
+                        class="border px-4 py-2 rounded">Annuleren</button>
+                <button type="submit"
+                        class="bg-blue-600 text-white px-4 py-2 rounded">
+                    Bevestigen
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
+{{-- Admin actief modal --}}
+@if(auth()->user()->role === 'admin')
 <div id="actief-modal"
      class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
     <div class="bg-white rounded shadow-lg p-6 w-96">
         <h2 class="text-xl font-bold mb-4">Actief status wijzigen</h2>
-        <p class="mb-2">Weet je zeker dat je de actief-status wilt wijzigen? LET OP! Hierdoor zal de inschrijvingsstatus aangepast worden naar afgewezen! (functie moet nog gemaakt worden)</p>
-
-        <div class="mb-4 text-sm bg-gray-100 border rounded p-2">
-            <strong>Subdeel ID dat wordt verstuurd:</strong><br>
-            <span id="popup-subdeel-id" class="font-mono text-xs break-all text-gray-700">—</span>
-        </div>
 
         <form method="POST" id="actief-form">
             @csrf
-            <button type="button" onclick="closeActiefModal()"
-                    class="px-4 py-2 border rounded hover:bg-gray-200">Annuleren</button>
-            <button type="submit"
-                    class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded">Bevestigen</button>
-        </form>
-    </div>
-</div>
-
-{{-- 3-Choice Modal --}}
-<div id="choices-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white rounded shadow-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-        <h2 class="text-2xl font-bold mb-4">📋 Maak je 3 keuzes</h2>
-        <p class="text-gray-600 mb-6">Voordat je je kunt inschrijven, moet je 3 keuzes opgeven (1e, 2e, en 3e keuze).</p>
-        
-        <form method="POST" action="{{ route('more-options.store') }}" id="choices-form">
-            @csrf
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                {{-- 1e Keuze --}}
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        1e Keuze <span class="text-red-500">*</span>
-                    </label>
-                    <select name="first_choice" id="first_choice" required 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Kies een keuzedeel...</option>
-                    </select>
-                </div>
-                
-                {{-- 2e Keuze --}}
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        2e Keuze <span class="text-red-500">*</span>
-                    </label>
-                    <select name="second_choice" id="second_choice" required 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Kies een keuzedeel...</option>
-                    </select>
-                </div>
-                
-                {{-- 3e Keuze --}}
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        3e Keuze <span class="text-red-500">*</span>
-                    </label>
-                    <select name="third_choice" id="third_choice" required 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Kies een keuzedeel...</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="bg-blue-50 border border-blue-200 rounded p-3 mb-6">
-                <p class="text-sm text-blue-800">
-                    <strong>Let op:</strong> Geselecteerde keuzedelen worden automatisch uit de andere dropdowns verwijderd om dubbele selecties te voorkomen.
-                </p>
-            </div>
-            
-            <div class="flex justify-end space-x-3">
-                <button type="button" onclick="closeChoicesModal()" 
-                        class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-                    Annuleren
-                </button>
-                <button type="submit" 
-                        class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    Keuzes Opslaan
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeActiefModal()"
+                        class="border px-4 py-2 rounded">Annuleren</button>
+                <button type="submit"
+                        class="bg-yellow-500 text-white px-4 py-2 rounded">
+                    Bevestigen
                 </button>
             </div>
         </form>
     </div>
 </div>
+@endif
 
 @php
-$js_ids = $delen->pluck('id');
-$js_ingeschreven = $delen->pluck('ingeschreven_count');
-$js_beschrijvingen = $delen->pluck('description');
-$js_actief = $delen->pluck('actief');
-$js_start = $delen->pluck('start_inschrijving');
-$js_eind = $delen->pluck('eind_inschrijving');
-$js_maximum = $delen->pluck('maximum_studenten');
+$ids = $delen->pluck('id');
+$beschrijvingen = $delen->pluck('description');
+$actief = $delen->pluck('actief');
+$aantallen = $delen->pluck('ingeschreven_count');
+$startData = $delen->pluck('start_inschrijving');
+$eindData = $delen->pluck('eind_inschrijving');
 @endphp
 
 <script>
-const deelButtons = document.querySelectorAll('.deel-btn');
-const signedUpDisplay = document.querySelector('#aantal-ingeschreven span');
-const titelSpan = document.getElementById('huidig-deel-titel');
-const descriptionSection = document.getElementById('deel-beschrijving');
-const actiefBox = document.getElementById('actief-status-box');
-const datumBox = document.getElementById('datum-box');
-const modal = document.getElementById('actief-modal');
-const modalIdSpan = document.getElementById('popup-subdeel-id');
-const actiefForm = document.getElementById('actief-form');
+const studentActivePriorities = @json($activeInschrijvingen);
+const studentActiveCount = @json($activeCount);
 
-const ids = @json($js_ids);
-const aantallen = @json($js_ingeschreven);
-const beschrijvingen = @json($js_beschrijvingen);
-const actief = @json($js_actief);
-const startData = @json($js_start);
-const eindData = @json($js_eind);
-const maximums = @json($js_maximum);
+const ids = @json($ids);
+const beschrijvingen = @json($beschrijvingen);
+const actief = @json($actief);
+const aantallen = @json($aantallen);
+const startData = @json($startData);
+const eindData = @json($eindData);
 
-function selectDeelById(id) {
-    deelButtons.forEach((btn, i) => {
+function formatDateDMY(dateStr){
+    if(!dateStr) return '';
+    // Split on T for ISO string, remove Z and microseconds
+    let [datePart] = dateStr.split('T'); // "2025-12-29"
+    let [year, month, day] = datePart.split('-');
+    return `${day}-${month}-${year}`;
+}
+
+
+function selectDeelById(id){
+    document.querySelectorAll('.deel-btn').forEach((btn,i)=>{
         const active = btn.dataset.id === id;
         btn.classList.toggle('opacity-100', active);
         btn.classList.toggle('opacity-60', !active);
 
-        if (active) {
-            signedUpDisplay.textContent = aantallen[i] ?? 0;
-            titelSpan.textContent = ids[i] ?? '';
-            descriptionSection.textContent = beschrijvingen[i] ?? '';
+        if(active){
+            document.getElementById('huidig-deel-titel').textContent = ids[i];
+            document.getElementById('deel-beschrijving').textContent = beschrijvingen[i];
+            document.querySelector('#aantal-ingeschreven span').textContent = aantallen[i] ?? 0;
 
-            actiefBox.textContent = actief[i] ? 'Actief' : 'Inactief';
-            actiefBox.className =
-                'px-4 py-2 rounded text-white font-semibold flex items-center ' +
-                (actief[i] ? 'bg-green-600' : 'bg-red-600');
+            const box = document.getElementById('actief-status-box');
+            box.textContent = actief[i] ? 'Actief' : 'Inactief';
+            box.className = actief[i]
+                ? 'px-4 py-2 rounded text-white font-semibold flex items-center bg-green-600'
+                : 'px-4 py-2 rounded text-white font-semibold flex items-center bg-red-600';
 
-                function formatDateDMY(dateStr) {
-                    if (!dateStr) return '';
-                    const [year, month, day] = dateStr.split('-');
-                    return `${day}-${month}-${year}`;
-                }
+            // Dynamic date update
+            const datumBox = document.getElementById('datum-box');
+            datumBox.innerHTML = `
+                <div><p>Inschrijvingsperiode:</p></div>
+                <div>${formatDateDMY(startData[i])} / ${formatDateDMY(eindData[i])}</div>
+            `;
 
-                datumBox.innerHTML = `
-                    <div><p>Inschrijvingsperiode:</p></div>
-                    <div>${formatDateDMY(startData[i])} / ${formatDateDMY(eindData[i])}</div>
-                `;
-
-
-            modalIdSpan.textContent = id;
-            actiefForm.action = `/keuzedeel/${id}/toggle-actief`;
-
-            document.querySelectorAll('.deel-form').forEach(form => {
-                form.style.display = form.dataset.id === id ? 'block' : 'none';
+            document.querySelectorAll('.deel-form').forEach(f=>{
+                f.style.display = f.dataset.id===id ? 'block':'none';
             });
+
+            @if(auth()->user()->role==='admin')
+                document.getElementById('actief-form').action=`/keuzedeel/${id}/toggle-actief`;
+            @endif
         }
     });
 
@@ -288,216 +270,48 @@ function selectDeelById(id) {
     window.history.replaceState({}, '', url);
 }
 
-function getQueryParam(param) {
-    return new URLSearchParams(window.location.search).get(param);
-}
+document.querySelectorAll('.deel-btn').forEach(btn =>
+    btn.addEventListener('click', () => selectDeelById(btn.dataset.id))
+);
 
-const sessionSubdeel = @json(session('subdeel_id'));
-const initialDeel =
-    (sessionSubdeel && ids.includes(sessionSubdeel)) ? sessionSubdeel :
-    (getQueryParam('id') && ids.includes(getQueryParam('id'))) ? getQueryParam('id') :
-    (ids.length > 0 ? ids[0] : null);
+const initialId = new URLSearchParams(window.location.search).get('id') ?? ids[0];
+if(initialId) selectDeelById(initialId);
 
-if (initialDeel) selectDeelById(initialDeel);
+function openInschrijvingModal(id){
+    document.getElementById('inschrijving-keuzedeel-id').value = id;
 
-deelButtons.forEach(btn => {
-    btn.addEventListener('click', () => selectDeelById(btn.dataset.id));
-});
+    const select = document.getElementById('priority-select');
+    select.innerHTML = '<option value="">Kies prioriteit</option>';
 
-function openActiefModal() {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeActiefModal() {
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
-
-// 3-Choice Modal Functions
-function openChoicesModal() {
-    document.getElementById('choices-modal').classList.remove('hidden');
-    document.getElementById('choices-modal').classList.add('flex');
-    loadAvailableKeuzedelen();
-}
-
-function closeChoicesModal() {
-    document.getElementById('choices-modal').classList.add('hidden');
-    document.getElementById('choices-modal').classList.remove('flex');
-}
-
-function loadAvailableKeuzedelen() {
-    // Load available keuzedelen via AJAX
-    fetch('{{ route("more-options.index") }}')
-        .then(response => response.text())
-        .then(html => {
-            // Extract keuzedelen data from the response
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const options = doc.querySelectorAll('select option');
-            
-            const selects = ['first_choice', 'second_choice', 'third_choice'];
-            selects.forEach(selectId => {
-                const select = document.getElementById(selectId);
-                if (select) {
-                    // Clear existing options except the first one
-                    select.innerHTML = '<option value="">Kies een keuzedeel...</option>';
-                    
-                    // Add available options
-                    options.forEach(option => {
-                        if (option.value) {
-                            const newOption = document.createElement('option');
-                            newOption.value = option.value;
-                            newOption.textContent = option.textContent;
-                            select.appendChild(newOption);
-                        }
-                    });
-                }
-            });
-        })
-        .catch(error => console.error('Error loading keuzedelen:', error));
-}
-
-// Handle choices form submission
-document.addEventListener('DOMContentLoaded', function() {
-    const choicesForm = document.getElementById('choices-form');
-    if (choicesForm) {
-        choicesForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            
-            fetch(this.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Close modal and show success
-                    closeChoicesModal();
-                    
-                    // Show success message
-                    const successDiv = document.createElement('div');
-                    successDiv.className = 'bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4';
-                    successDiv.innerHTML = `<strong>${data.message}</strong>`;
-                    
-                    // Insert at the top of the main content
-                    const mainContent = document.querySelector('main') || document.body;
-                    mainContent.insertBefore(successDiv, mainContent.firstChild);
-                    
-                    // Remove after 5 seconds
-                    setTimeout(() => successDiv.remove(), 5000);
-                    
-                    // Reload page after a short delay to update enrollment status
-                    setTimeout(() => location.reload(), 2000);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                // Fallback to normal form submission
-                this.submit();
-            });
-        });
-    }
-});
-
-// Handle enrollment form submission
-document.addEventListener('DOMContentLoaded', function() {
-    const enrollmentForm = document.getElementById('enrollment-form');
-    if (enrollmentForm) {
-        enrollmentForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            
-            fetch(this.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'needs_choices') {
-                    // Show the choices modal
-                    openChoicesModal();
-                } else if (data.redirect) {
-                    // Redirect on success
-                    window.location.href = data.redirect;
-                } else {
-                    // Reload page on success
-                    location.reload();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                // Fallback to normal form submission
-                this.submit();
-            });
-        });
-    }
-});
-
-// Prevent duplicate selections
-document.addEventListener('DOMContentLoaded', function() {
-    const selects = ['first_choice', 'second_choice', 'third_choice'];
-    
-    selects.forEach(function(selectId) {
-        const select = document.getElementById(selectId);
-        if (select) {
-            select.addEventListener('change', function() {
-                const selectedValue = this.value;
-                
-                // Update all other selects to hide/disable the selected option
-                selects.forEach(function(otherId) {
-                    if (otherId !== selectId) {
-                        const otherSelect = document.getElementById(otherId);
-                        
-                        // Re-enable all options first
-                        Array.from(otherSelect.options).forEach(option => {
-                            if (option.value !== '') {
-                                option.disabled = false;
-                                option.style.display = 'block';
-                            }
-                        });
-                        
-                        // Then disable the currently selected option in other selects
-                        if (selectedValue !== '') {
-                            Array.from(otherSelect.options).forEach(option => {
-                                if (option.value === selectedValue) {
-                                    option.disabled = true;
-                                    option.style.display = 'none';
-                                }
-                            });
-                        }
-                        
-                        // If the other select had the same value selected, clear it
-                        if (otherSelect.value === selectedValue) {
-                            otherSelect.value = '';
-                        }
-                    }
-                });
-            });
+    [1,2,3].forEach(p=>{
+        if(!studentActivePriorities.includes(p)){
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            select.appendChild(opt);
         }
     });
-    
-    // Initial setup to disable already selected options
-    selects.forEach(function(selectId) {
-        const select = document.getElementById(selectId);
-        if (select && select.value !== '') {
-            // Trigger change event to apply the logic
-            select.dispatchEvent(new Event('change'));
-        }
-    });
-});
 
+    // Disable submit/select if all priorities are taken
+    select.disabled = select.options.length <= 1;
+
+    document.getElementById('inschrijving-modal').classList.remove('hidden');
+    document.getElementById('inschrijving-modal').classList.add('flex');
+}
+
+
+function closeInschrijvingModal(){
+    document.getElementById('inschrijving-modal').classList.add('hidden');
+}
+
+function openActiefModal(){
+    document.getElementById('actief-modal').classList.remove('hidden');
+    document.getElementById('actief-modal').classList.add('flex');
+}
+
+function closeActiefModal(){
+    document.getElementById('actief-modal').classList.add('hidden');
+}
 </script>
 
 @endsection

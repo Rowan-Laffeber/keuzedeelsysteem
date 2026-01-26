@@ -107,7 +107,7 @@
                          data-keuzedeel-title="{{ strtolower($inschrijving->keuzedeel->title ?? '') }}">
                         <div class="w-1/4">{{ $inschrijving->keuzedeel->title }}</div>
                         <div class="w-1/6">{{ $inschrijving->keuzedeel_id }}</div>
-                        <div class="w-1/6">-</div>
+                        <div class="w-1/6">{{ $inschrijving->priority }}</div>
                         <div class="w-1/6 text-green-600 font-semibold">
                             {{ ucfirst($inschrijving->status) }}
                         </div>

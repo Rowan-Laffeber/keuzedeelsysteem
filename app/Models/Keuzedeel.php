@@ -29,6 +29,11 @@ class Keuzedeel extends Model
 
     protected $appends = ['status_helper'];
 
+    protected $casts = [
+        'start_inschrijving' => 'datetime',
+        'eind_inschrijving' => 'datetime',
+    ];
+
     /**
      * Status helper accessor
      */
