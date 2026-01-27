@@ -17,12 +17,12 @@ class KeuzedeelController extends Controller
 
         $parents = Keuzedeel::whereNull('parent_id')->get();
         $keuzedelen = [];
+        $seenIds = []; // track IDs across all files
 
         $uploadFolder = storage_path('app/csv_uploads');
 
         if (is_dir($uploadFolder)) {
             $files = glob($uploadFolder . '/*.csv');
-            $seenIds = [];
 
             foreach ($files as $csvFile) {
                 $firstLine = file($csvFile)[0] ?? '';
@@ -32,6 +32,7 @@ class KeuzedeelController extends Controller
                 if (!$handle) continue;
 
                 $foundExaminerend = false;
+
                 while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
                     if (in_array('Examinerend', $row)) {
                         $foundExaminerend = true;
@@ -41,7 +42,10 @@ class KeuzedeelController extends Controller
                     if ($foundExaminerend) {
                         foreach ($row as $cell) {
                             $cell = trim($cell);
-                            if (strpos($cell, 'K') !== false && !Keuzedeel::where('id', $cell)->exists() && !in_array($cell, $seenIds)) {
+                            if (strpos($cell, 'K') !== false
+                                && !Keuzedeel::where('id', $cell)->exists()
+                                && !in_array($cell, $seenIds)
+                            ) {
                                 $keuzedelen[] = $cell;
                                 $seenIds[] = $cell;
                             }
@@ -74,11 +78,31 @@ class KeuzedeelController extends Controller
         $parentMaxType = $request->parent_max_type ?? 'subdeel';
 
         if ($request->parent_id) {
+            // Use old creation logic for subdeel creation under existing parent
             $parent = Keuzedeel::find($request->parent_id);
             $title = $parent->title;
+
             $parentMaxType = $parent->parent_max_type ?? 'subdeel';
-            $subdeelMax = $parentMaxType === 'subdeel' ? 30 : null;
+            if (!in_array($parentMaxType, ['subdeel', 'parent'])) {
+                $parentMaxType = 'subdeel';
+            }
+
+            if ($parentMaxType === 'subdeel') {
+                $subdeelMax = 30;
+                $parent->maximum_studenten = ($parent->maximum_studenten ?? 0) + 30;
+                $parent->save();
+            } else {
+                $subdeelMax = null;
+                if ($parent->maximum_studenten === null) {
+                    $parent->maximum_studenten = 30;
+                    $parent->save();
+                }
+            }
+
         } else {
+            // Create new parent
+            $subdeelMax = $parentMaxType === 'subdeel' ? 30 : null;
+
             $parent = Keuzedeel::create([
                 'id' => (string) Str::uuid(),
                 'title' => $request->title,
@@ -91,9 +115,9 @@ class KeuzedeelController extends Controller
                 'eind_inschrijving' => $request->eind_inschrijving,
             ]);
             $title = $request->title;
-            $subdeelMax = $parentMaxType === 'subdeel' ? 30 : null;
         }
 
+        // Create the actual subdeel
         Keuzedeel::create([
             'id' => $request->id,
             'title' => $title,
@@ -148,9 +172,6 @@ class KeuzedeelController extends Controller
             ->with('subdeel_id', $keuzedeel->id);
     }
 
-    /**
-     * Toggle actief status and recalc all affected students
-     */
     public function toggleActief(Keuzedeel $keuzedeel)
     {
         $this->authorizeAdmin();
@@ -158,7 +179,6 @@ class KeuzedeelController extends Controller
         $keuzedeel->actief = !$keuzedeel->actief;
         $keuzedeel->save();
 
-        // Recalculate priorities for all students who have inschrijvingen for this keuzedeel
         $studentIds = Inschrijving::where('keuzedeel_id', $keuzedeel->id)
             ->pluck('student_id')
             ->unique()
@@ -173,9 +193,6 @@ class KeuzedeelController extends Controller
             : 'Keuzedeel gedeactiveerd en inschrijvingen herberekend.');
     }
 
-    /**
-     * Delete keuzedeel and all related inschrijvingen, recalc affected students
-     */
     public function destroy(Keuzedeel $keuzedeel)
     {
         $this->authorizeAdmin();
@@ -186,13 +203,11 @@ class KeuzedeelController extends Controller
                 ->unique()
                 ->toArray();
 
-            // Delete all inschrijvingen
             Inschrijving::where('keuzedeel_id', $keuzedeel->id)->delete();
 
             $parentId = $keuzedeel->parent_id;
             $keuzedeel->delete();
 
-            // If parent has no subdelen left, delete parent
             if ($parentId) {
                 $parent = Keuzedeel::find($parentId);
                 if ($parent && $parent->delen()->count() === 0) {
@@ -200,7 +215,6 @@ class KeuzedeelController extends Controller
                 }
             }
 
-            // Recalc all affected students
             foreach ($studentIds as $studentId) {
                 PriorityStatusService::recalc(studentId: $studentId);
             }
