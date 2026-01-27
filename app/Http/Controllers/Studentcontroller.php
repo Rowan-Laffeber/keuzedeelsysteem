@@ -55,7 +55,7 @@ class StudentController extends Controller
         // $query->has('inschrijvingen');
 
         // --- Execute query ---
-        $students = $query->get();
+        $students = $query->paginate(15)->withQueryString();
 
         // --- Keuzedelen for dropdown: only where parent_id is not null ---
         $keuzedelen = Keuzedeel::whereNotNull('parent_id')->get();

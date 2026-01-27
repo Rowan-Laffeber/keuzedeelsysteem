@@ -151,6 +151,40 @@
         </div>
 
     </div>
+    <div class="flex flex-col sm:flex-row items-center justify-between mt-6 px-4 sm:px-0">
+        {{-- Results summary --}}
+        <div class="text-gray-700 text-sm mb-2 sm:mb-0">
+            Showing {{ $students->firstItem() }} to {{ $students->lastItem() }} of {{ $students->total() }} results
+        </div>
+
+        {{-- Pagination --}}
+        <nav class="inline-flex -space-x-px" aria-label="Pagination">
+            {{-- Previous --}}
+            @if($students->onFirstPage())
+                <span class="px-3 py-1 rounded-l-md border border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed">Previous</span>
+            @else
+                <a href="{{ $students->previousPageUrl() }}" class="px-3 py-1 rounded-l-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Previous</a>
+            @endif
+
+            {{-- Page numbers --}}
+            @foreach ($students->getUrlRange(1, $students->lastPage()) as $page => $url)
+                @if ($page == $students->currentPage())
+                    <span class="px-3 py-1 border border-gray-300 bg-blue-600 text-white">{{ $page }}</span>
+                @else
+                    <a href="{{ $url }}" class="px-3 py-1 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">{{ $page }}</a>
+                @endif
+            @endforeach
+
+            {{-- Next --}}
+            @if($students->hasMorePages())
+                <a href="{{ $students->nextPageUrl() }}" class="px-3 py-1 rounded-r-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Next</a>
+            @else
+                <span class="px-3 py-1 rounded-r-md border border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed">Next</span>
+            @endif
+        </nav>
+    </div>
+
+
 </div>
 
 {{-- JS Filters & URL sync --}}
