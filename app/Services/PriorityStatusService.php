@@ -28,60 +28,55 @@ class PriorityStatusService
         DB::transaction(function () use ($inschrijvingen) {
             foreach ($inschrijvingen as $studentId => $studentInschrijvingen) {
 
-                // Step 1: reset all statuses based on active/inactive
-                foreach ($studentInschrijvingen as $i) {
-                    $i->status = $i->keuzedeel->actief ? 'ingediend' : 'afgewezen';
-                    $i->save();
+                // Reset statuses based on actief
+                foreach ($studentInschrijvingen as $inschrijving) {
+                    $inschrijving->status = $inschrijving->keuzedeel->actief ? 'ingediend' : 'afgewezen';
+                    $inschrijving->save();
                 }
 
-                // Step 2: process priorities in order
                 $approvedThisStudent = false;
 
                 foreach ([1, 2, 3] as $priority) {
                     $prioInschrijvingen = $studentInschrijvingen->where('priority', $priority);
 
-                    foreach ($prioInschrijvingen as $i) {
-                        $deel = $i->keuzedeel;
+                    foreach ($prioInschrijvingen as $inschrijving) {
+                        $deel = $inschrijving->keuzedeel;
 
-                        // Skip inactive keuzedeel
                         if (!$deel->actief) {
-                            $i->status = 'afgewezen';
-                            $i->save();
+                            $inschrijving->status = 'afgewezen';
+                            $inschrijving->save();
                             continue;
                         }
 
-                        // Check maximum
-                        $currentApproved = Inschrijving::where('keuzedeel_id', $deel->id)
+                        // Determine relevant keuzedeel IDs (for parent grouping)
+                        if ($deel->max_type_parent === 'parent' && $deel->parent_id) {
+                            $parentId = $deel->parent_id;
+                            $relatedIds = Keuzedeel::where('parent_id', $parentId)->pluck('id')->toArray();
+                            $relatedIds[] = $parentId;
+                        } else {
+                            $relatedIds = [$deel->id];
+                        }
+
+                        // ✅ Check if max approved reached for this keuzedeel/group
+                        $currentApproved = Inschrijving::whereIn('keuzedeel_id', $relatedIds)
                             ->where('status', 'goedgekeurd')
                             ->count();
 
                         if ($deel->maximum_studenten !== null && $currentApproved >= $deel->maximum_studenten) {
-                            $i->status = 'afgewezen';
-                            $i->save();
+                            $inschrijving->status = 'ingediend'; // keep waiting
+                            $inschrijving->save();
                             continue;
                         }
 
-                        // Check minimum: only reject if enough students already exist
-                        $totalEnrollments = Inschrijving::where('keuzedeel_id', $deel->id)
-                            ->whereIn('status', ['goedgekeurd', 'ingediend'])
-                            ->count();
-
-                        if ($deel->minimum_studenten && $currentApproved < $deel->minimum_studenten && $totalEnrollments >= $deel->minimum_studenten) {
-                            $i->status = 'afgewezen';
-                            $i->save();
-                            continue;
-                        }
-
-                        // Approve if priority 1 or if no higher priority approved yet
+                        // Approve if priority 1 or no higher priority approved
                         if ($priority === 1 || !$approvedThisStudent) {
-                            $i->status = 'goedgekeurd';
-                            $i->save();
+                            $inschrijving->status = 'goedgekeurd';
                             $approvedThisStudent = true;
                         } else {
-                            // Lower priority, keep as ingediend if higher approved
-                            $i->status = 'ingediend';
-                            $i->save();
+                            $inschrijving->status = 'ingediend';
                         }
+
+                        $inschrijving->save();
                     }
                 }
             }

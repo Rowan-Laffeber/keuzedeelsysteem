@@ -70,24 +70,24 @@ class InschrijvingController extends Controller
                 'start_inschrijving' => $start->format('d-m-Y'),
                 'eind_inschrijving' => $end->format('d-m-Y'),
                 'is_ingeschreven' => $isIngeschreven,
-                'in_period' => $inPeriod,
-                'max_reached_by_prio' => $maxReachedByPrio,
-                'available_priorities' => $availablePriorities,
-                'can_enroll' => $canEnroll,
-            ];
-        });
+                    'in_period' => $inPeriod,
+                    'max_reached_by_prio' => $maxReachedByPrio,
+                    'available_priorities' => $availablePriorities,
+                    'can_enroll' => $canEnroll,
+                ];
+            });
 
-        return view('info', [
-            'keuzedeel' => $keuzedeel,
-            'delen' => $deelInfo,
-            'activeCount' => $activeCount,
-        ]);
-    }
+            return view('info', [
+                'keuzedeel' => $keuzedeel,
+                'delen' => $deelInfo,
+                'activeCount' => $activeCount,
+            ]);
+        }
 
-    /**
-     * Store a new enrollment
-     */
-    public function store(Request $request)
+        /**
+         * Store a new enrollment
+         */
+        public function store(Request $request)
     {
         $user = auth()->user();
         if ($user->role !== 'student') {
@@ -102,27 +102,52 @@ class InschrijvingController extends Controller
         $keuzedeel = Keuzedeel::findOrFail($keuzedeelId);
         $now = Carbon::now();
 
-        // Validation
+        // Validate active and enrollment period
         if (!$keuzedeel->actief) return back()->with('error', 'Dit keuzedeel is niet actief.');
         $start = Carbon::parse($keuzedeel->start_inschrijving);
-        $end = Carbon::parse($keuzedeel->eind_inschrijving);
+        $end   = Carbon::parse($keuzedeel->eind_inschrijving);
         if (!$now->between($start, $end)) return back()->with('error', 'De inschrijvingsperiode is gesloten.');
 
+        // Check if student already has max 3 active enrollments
         $activeEnrollments = $student->inschrijvingen()
             ->whereIn('status', ['goedgekeurd', 'ingediend'])
             ->get();
 
         if ($activeEnrollments->count() >= 3) return back()->with('error', 'Je hebt al 3 inschrijvingen.');
-        if ($activeEnrollments->where('priority', $priority)->count() > 0) return back()->with('error', "Je hebt al een inschrijving met prioriteit $priority.");
+
+        // Check if student already has this priority
+        if ($activeEnrollments->where('priority', $priority)->count() > 0) {
+            return back()->with('error', "Je hebt al een inschrijving met prioriteit $priority.");
+        }
+
+        // Check if student already enrolled in this keuzedeel
         if ($student->inschrijvingen()->where('keuzedeel_id', $keuzedeelId)->exists()) {
             return back()->with('error', 'Je bent al ingeschreven voor dit keuzedeel.');
         }
 
+        // Determine relevant keuzedeel IDs based on max_type_parent
+        if ($keuzedeel->max_type_parent === 'parent' && $keuzedeel->parent_id) {
+            $parentId = $keuzedeel->parent_id;
+            $relatedIds = Keuzedeel::where('parent_id', $parentId)->pluck('id')->toArray();
+            $relatedIds[] = $parentId;
+        } else {
+            $relatedIds = [$keuzedeel->id];
+            }
+
+        // Check per-priority cap
+        $prioCount = Inschrijving::whereIn('keuzedeel_id', $relatedIds)
+            ->where('priority', $priority)
+            ->whereIn('status', ['goedgekeurd', 'ingediend'])
+            ->count();
+
+        if ($keuzedeel->maximum_studenten !== null && $prioCount >= $keuzedeel->maximum_studenten) {
+            return back()->with('error', "Deze prioriteit is vol. Kies een andere prioriteit of keuzedeel.");
+        }
+
         // Set initial status based on priority
         $initialStatus = match($priority) {
-            1 => 'goedgekeurd',  // Priority 1 is immediately approved
-            2 => 'ingediend',    // Priority 2 is initially waiting
-            3 => 'ingediend',    // Priority 3 is initially waiting
+            1 => 'goedgekeurd',  // Priority 1 is immediately approved if available
+            2, 3 => 'ingediend',
             default => 'ingediend'
         };
 
@@ -136,28 +161,34 @@ class InschrijvingController extends Controller
             'inschrijfdatum' => $now,
         ]);
 
-        // recalculate statusses fo this student
+        // Recalculate statuses for this student
         PriorityStatusService::recalc(studentId: $student->id);
 
         return back()->with('success', 'Succesvol ingeschreven!');
     }
 
+
     /**
      * Delete an enrollment
      */
-    public function destroy(Request $request)
-    {
-        $student = auth()->user()->student;
-        $keuzedeelId = $request->input('keuzedeel_id');
+    
+     public function destroy(Request $request)
+     {
+         $student = auth()->user()->student;
+         $keuzedeelId = $request->input('keuzedeel_id');
+     
+         $inschrijving = $student->inschrijvingen()->where('keuzedeel_id', $keuzedeelId)->first();
+         if (!$inschrijving) {
+             return back()->with('error', 'Geen inschrijving gevonden om te verwijderen.');
+         }
+     
+         $inschrijving->delete();
+     
+         // Recalculate statuses for ALL affected students
+         PriorityStatusService::recalc(Keuzedeel::find($keuzedeelId));
+     
+         return back()->with('success', 'Succesvol uitgeschreven!');
+     }
+     
 
-        $inschrijving = $student->inschrijvingen()->where('keuzedeel_id', $keuzedeelId)->first();
-        if (!$inschrijving) return back()->with('error', 'Geen inschrijving gevonden om te verwijderen.');
-
-        $inschrijving->delete();
-
-        // Recalculate statusses for this student
-        PriorityStatusService::recalc(studentId: $student->id);
-
-        return back()->with('success', 'Succesvol uitgeschreven!');
-    }
 }

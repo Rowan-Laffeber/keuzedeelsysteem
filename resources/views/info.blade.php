@@ -127,9 +127,22 @@ foreach ($delen as $deel) {
             @endif
         </div>
  
-        @if($deel->is_ingeschreven)
-            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-2">
-                Je bent al ingeschreven voor dit keuzedeel.
+        @php
+            $inschrijving = auth()->user()->student
+                ? auth()->user()->student->inschrijvingen()->where('keuzedeel_id', $deel->id)->first()
+                : null;
+        @endphp
+
+        @if($inschrijving)
+            <div class="bg-{{ $inschrijving->status === 'afgewezen' ? 'red' : 'green' }}-100 
+                        border border-{{ $inschrijving->status === 'afgewezen' ? 'red' : 'green' }}-400 
+                        text-{{ $inschrijving->status === 'afgewezen' ? 'red' : 'green' }}-700 
+                        px-4 py-3 rounded mb-2">
+                @if($inschrijving->status === 'afgewezen')
+                    Je inschrijving is afgewezen.
+                @else
+                    Je bent al ingeschreven voor dit keuzedeel.
+                @endif
             </div>
 
             <form method="POST" action="{{ route('uitschrijven.destroy') }}">
@@ -309,6 +322,7 @@ function openInschrijvingModal(id){
         const studentHasPrio = studentActivePriorities.includes(p);
         const prioFull = maxReachedByPrio[deelIndex][p];
 
+        // Only show option if student hasn't used it AND it is not full
         if(!studentHasPrio && !prioFull){
             const opt = document.createElement('option');
             opt.value = p;
@@ -317,11 +331,14 @@ function openInschrijvingModal(id){
         }
     });
 
+    // Disable select if no options are available
     select.disabled = select.options.length <= 1;
 
     document.getElementById('inschrijving-modal').classList.remove('hidden');
     document.getElementById('inschrijving-modal').classList.add('flex');
 }
+
+
 
 function closeInschrijvingModal(){
     document.getElementById('inschrijving-modal').classList.add('hidden');
