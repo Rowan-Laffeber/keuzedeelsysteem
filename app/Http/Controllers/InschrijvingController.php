@@ -109,7 +109,7 @@ class InschrijvingController extends Controller
         if (!$now->between($start, $end)) return back()->with('error', 'De inschrijvingsperiode is gesloten.');
 
         $activeEnrollments = $student->inschrijvingen()
-            ->whereIn('status', ['goedgekeurd', 'aangemeld'])
+            ->whereIn('status', ['goedgekeurd', 'ingediend'])
             ->get();
 
         if ($activeEnrollments->count() >= 3) return back()->with('error', 'Je hebt al 3 inschrijvingen.');
@@ -121,9 +121,9 @@ class InschrijvingController extends Controller
         // Set initial status based on priority
         $initialStatus = match($priority) {
             1 => 'goedgekeurd',  // Priority 1 is immediately approved
-            2 => 'aangemeld',    // Priority 2 is initially waiting
-            3 => 'aangemeld',    // Priority 3 is initially waiting
-            default => 'aangemeld'
+            2 => 'ingediend',    // Priority 2 is initially waiting
+            3 => 'ingediend',    // Priority 3 is initially waiting
+            default => 'ingediend'
         };
 
         Inschrijving::create([

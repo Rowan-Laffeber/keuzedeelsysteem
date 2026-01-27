@@ -63,7 +63,7 @@ class PriorityStatusService
 
                         // Check minimum: only reject if enough students already exist
                         $totalEnrollments = Inschrijving::where('keuzedeel_id', $deel->id)
-                            ->whereIn('status', ['goedgekeurd', 'aangemeld'])
+                            ->whereIn('status', ['goedgekeurd', 'ingediend'])
                             ->count();
 
                         if ($deel->minimum_studenten && $currentApproved < $deel->minimum_studenten && $totalEnrollments >= $deel->minimum_studenten) {
@@ -78,8 +78,8 @@ class PriorityStatusService
                             $i->save();
                             $approvedThisStudent = true;
                         } else {
-                            // Lower priority, keep as aangemeld if higher approved
-                            $i->status = 'aangemeld';
+                            // Lower priority, keep as ingediend if higher approved
+                            $i->status = 'ingediend';
                             $i->save();
                         }
                     }

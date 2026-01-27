@@ -16,7 +16,6 @@
                 @if(isset($parent->is_ingeschreven) && $parent->is_ingeschreven)
                     <div class="px-3 py-1 rounded-full mb-2 text-sm font-medium 
                         @if($parent->enrollment_status === 'goedgekeurd') bg-green-100 text-green-800
-                        @elseif($parent->enrollment_status === 'aangemeld') bg-blue-100 text-blue-800
                         @elseif($parent->enrollment_status === 'ingediend') bg-yellow-100 text-yellow-800
                         @else bg-gray-100 text-gray-800 @endif">
                         Prio {{ $parent->enrollment_priority }} · {{ ucfirst($parent->enrollment_status) }}

@@ -34,7 +34,7 @@ class Student extends Model
     public function bevestigdeKeuzedelen()
     {
         return $this->belongsToMany(Keuzedeel::class, 'inschrijvings')
-            ->wherePivotIn('status', ['goedgekeurd', 'aangemeld', 'ingediend', 'afgewezen'])
+            ->wherePivotIn('status', ['goedgekeurd', 'ingediend', 'afgewezen'])
             ->withPivot(['status', 'priority', 'opmerkingen', 'inschrijfdatum'])
             ->withTimestamps()
             ->withCasts([
