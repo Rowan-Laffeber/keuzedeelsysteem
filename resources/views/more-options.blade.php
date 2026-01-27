@@ -28,7 +28,7 @@
             <!-- First Choice -->
             <div class="mb-6">
                 <label for="first_choice" class="block text-sm font-medium text-gray-700 mb-2">
-                    <span class="text-lg font-bold">1️⃣ Eerste Keuze</span>
+                    <span class="text-lg font-bold">1️ Eerste Keuze</span>
                     <span class="text-sm text-gray-500 block">Je voorkeur als er genoeg plaatsen zijn</span>
                 </label>
                 <select 
@@ -53,7 +53,7 @@
             <!-- Second Choice -->
             <div class="mb-6">
                 <label for="second_choice" class="block text-sm font-medium text-gray-700 mb-2">
-                    <span class="text-lg font-bold">2️⃣ Tweede Keuze</span>
+                    <span class="text-lg font-bold">2️ Tweede Keuze</span>
                     <span class="text-sm text-gray-500 block">Als je eerste keuze niet doorgaat</span>
                 </label>
                 <select 
@@ -78,7 +78,7 @@
             <!-- Third Choice -->
             <div class="mb-6">
                 <label for="third_choice" class="block text-sm font-medium text-gray-700 mb-2">
-                    <span class="text-lg font-bold">3️⃣ Derde Keuze</span>
+                    <span class="text-lg font-bold">3️ Derde Keuze</span>
                     <span class="text-sm text-gray-500 block">Als je tweede keuze ook niet doorgaat</span>
                 </label>
                 <select 
@@ -118,7 +118,7 @@
                     <div class="flex items-center justify-between p-3 border rounded-lg">
                         <div>
                             <span class="font-medium">
-                                {{ $priority === 1 ? '1️⃣ Eerste' : ($priority === 2 ? '2️⃣ Tweede' : '3️⃣ Derde') }} Keuze:
+                                {{ $priority === 1 ? '1️ Eerste' : ($priority === 2 ? '2️ Tweede' : '3️ Derde') }} Keuze:
                             </span>
                             <span class="ml-2 text-gray-700">{{ $choice->keuzedeel->title }}</span>
                             <span class="ml-2 text-sm text-gray-500">

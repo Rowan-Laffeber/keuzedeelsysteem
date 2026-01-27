@@ -3,34 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Models\Keuzedeel;
+use App\Models\Inschrijving;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Services\PriorityStatusService;
+use Illuminate\Support\Facades\DB;
 
 class KeuzedeelController extends Controller
 {
-    /**
-     * Show the form to create a new keuzedeel.
-     */
     public function create()
-    {   
-        $user = auth()->user();
-        if ($user->role !== 'admin') {
-            return redirect()->route('home')->with('error', 'Alleen admins mogen deze pagina bekijken.');
-        }
-        
+    {
+        $this->authorizeAdmin();
+
         $parents = Keuzedeel::whereNull('parent_id')->get();
         $keuzedelen = [];
-        $seenIds = []; // track IDs across all files
 
         $uploadFolder = storage_path('app/csv_uploads');
 
         if (is_dir($uploadFolder)) {
-
-            // Scan all CSV files in the folder
             $files = glob($uploadFolder . '/*.csv');
+            $seenIds = [];
 
             foreach ($files as $csvFile) {
-
                 $firstLine = file($csvFile)[0] ?? '';
                 $delimiter = strpos($firstLine, ';') !== false ? ';' : ',';
                 $handle = fopen($csvFile, 'r');
@@ -38,7 +32,6 @@ class KeuzedeelController extends Controller
                 if (!$handle) continue;
 
                 $foundExaminerend = false;
-
                 while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
                     if (in_array('Examinerend', $row)) {
                         $foundExaminerend = true;
@@ -64,15 +57,9 @@ class KeuzedeelController extends Controller
         return view('create', compact('parents', 'keuzedelen'));
     }
 
-    /**
-     * Store a newly created keuzedeel in the database.
-     */
     public function store(Request $request)
     {
-        $user = auth()->user();
-        if ($user->role !== 'admin') {
-            return redirect()->route('home');
-        }
+        $this->authorizeAdmin();
 
         $request->validate([
             'id' => 'required|string|unique:keuzedelen,id',
@@ -86,47 +73,27 @@ class KeuzedeelController extends Controller
 
         $parentMaxType = $request->parent_max_type ?? 'subdeel';
 
-        // Determine parent
         if ($request->parent_id) {
             $parent = Keuzedeel::find($request->parent_id);
             $title = $parent->title;
-
             $parentMaxType = $parent->parent_max_type ?? 'subdeel';
-            if (!in_array($parentMaxType, ['subdeel', 'parent'])) {
-                $parentMaxType = 'subdeel';
-            }
-
-            if ($parentMaxType === 'subdeel') {
-                $subdeelMax = 30;
-                $parent->maximum_studenten = ($parent->maximum_studenten ?? 0) + 30;
-                $parent->save();
-            } else { // parent max type
-                $subdeelMax = null;
-                if ($parent->maximum_studenten === null) {
-                    $parent->maximum_studenten = 30;
-                    $parent->save();
-                }
-            }
-
-        } else {
-            // Create new parent
             $subdeelMax = $parentMaxType === 'subdeel' ? 30 : null;
-
+        } else {
             $parent = Keuzedeel::create([
                 'id' => (string) Str::uuid(),
                 'title' => $request->title,
                 'description' => '',
                 'actief' => true,
                 'minimum_studenten' => 15,
-                'maximum_studenten' => 30, // always 30 for new parent
+                'maximum_studenten' => 30,
                 'parent_max_type' => $parentMaxType,
                 'start_inschrijving' => $request->start_inschrijving,
                 'eind_inschrijving' => $request->eind_inschrijving,
             ]);
             $title = $request->title;
+            $subdeelMax = $parentMaxType === 'subdeel' ? 30 : null;
         }
 
-        // Create subdeel
         Keuzedeel::create([
             'id' => $request->id,
             'title' => $title,
@@ -143,22 +110,16 @@ class KeuzedeelController extends Controller
 
         return redirect()->route('home')->with('success', 'Keuzedeel succesvol aangemaakt!');
     }
+
     public function edit(Keuzedeel $keuzedeel)
     {
-        $user = auth()->user();
-        if ($user->role !== 'admin') {
-            return redirect()->route('home');
-        }
-
+        $this->authorizeAdmin();
         return view('update', compact('keuzedeel'));
     }
 
     public function update(Request $request, Keuzedeel $keuzedeel)
     {
-        $user = auth()->user();
-        if ($user->role !== 'admin') {
-            return redirect()->route('home');
-        }
+        $this->authorizeAdmin();
 
         $request->validate([
             'title' => 'required|string|max:255',
@@ -167,72 +128,92 @@ class KeuzedeelController extends Controller
             'eind_inschrijving' => 'required|date|after:start_inschrijving',
         ]);
 
-        // Update the edited keuzedeel's description and dates
         $keuzedeel->update([
             'description' => $request->description,
             'start_inschrijving' => $request->start_inschrijving,
             'eind_inschrijving' => $request->eind_inschrijving,
         ]);
 
-        // Determine the parent
-        $parentId = $keuzedeel->parent_id ?? $keuzedeel->id;
-        $parent = Keuzedeel::find($parentId);
-
+        $parent = Keuzedeel::find($keuzedeel->parent_id ?? $keuzedeel->id);
         if ($parent) {
-            // Update the parent title
             $parent->title = $request->title;
             $parent->save();
 
-            // Update all subdelen of this parent to have the same title
             Keuzedeel::where('parent_id', $parent->id)
                 ->update(['title' => $request->title]);
         }
 
-        // Redirect to keuzedeel.info using parent_id as main route,
-        // and pass current subdeel id as query param "id"
-        return redirect()->route('keuzedeel.info', $parent->id) // parent route
-            ->with('success', 'Keuzedeel en bijbehorende subdelen succesvol aangepast!')
-            ->with('subdeel_id', $keuzedeel->id); // flash subdeel ID
-
+        return redirect()->route('keuzedeel.info', $parent->id)
+            ->with('success', 'Keuzedeel en subdelen aangepast!')
+            ->with('subdeel_id', $keuzedeel->id);
     }
-    public function toggleActief(Request $request, Keuzedeel $keuzedeel)
-    {
-        $user = auth()->user();
-        if ($user->role !== 'admin') {
-            return redirect()->route('home');
-        }
 
-        // Toggle the subdeel status
-        $keuzedeel->actief = ! $keuzedeel->actief;
+    /**
+     * Toggle actief status and recalc all affected students
+     */
+    public function toggleActief(Keuzedeel $keuzedeel)
+    {
+        $this->authorizeAdmin();
+
+        $keuzedeel->actief = !$keuzedeel->actief;
         $keuzedeel->save();
 
-        return back();
+        // Recalculate priorities for all students who have inschrijvingen for this keuzedeel
+        $studentIds = Inschrijving::where('keuzedeel_id', $keuzedeel->id)
+            ->pluck('student_id')
+            ->unique()
+            ->toArray();
+
+        foreach ($studentIds as $studentId) {
+            PriorityStatusService::recalc(studentId: $studentId);
+        }
+
+        return back()->with('success', $keuzedeel->actief
+            ? 'Keuzedeel geactiveerd en inschrijvingen herberekend.'
+            : 'Keuzedeel gedeactiveerd en inschrijvingen herberekend.');
     }
 
+    /**
+     * Delete keuzedeel and all related inschrijvingen, recalc affected students
+     */
     public function destroy(Keuzedeel $keuzedeel)
+    {
+        $this->authorizeAdmin();
+
+        DB::transaction(function () use ($keuzedeel) {
+            $studentIds = Inschrijving::where('keuzedeel_id', $keuzedeel->id)
+                ->pluck('student_id')
+                ->unique()
+                ->toArray();
+
+            // Delete all inschrijvingen
+            Inschrijving::where('keuzedeel_id', $keuzedeel->id)->delete();
+
+            $parentId = $keuzedeel->parent_id;
+            $keuzedeel->delete();
+
+            // If parent has no subdelen left, delete parent
+            if ($parentId) {
+                $parent = Keuzedeel::find($parentId);
+                if ($parent && $parent->delen()->count() === 0) {
+                    $parent->delete();
+                }
+            }
+
+            // Recalc all affected students
+            foreach ($studentIds as $studentId) {
+                PriorityStatusService::recalc(studentId: $studentId);
+            }
+        });
+
+        return redirect()->route('home')->with('success', 'Keuzedeel en inschrijvingen verwijderd.');
+    }
+
+    private function authorizeAdmin()
     {
         $user = auth()->user();
         if ($user->role !== 'admin') {
-            return redirect()->route('home');
+            abort(403, 'Alleen admins mogen dit doen.');
         }
-
-        // Store parent_id before deleting
-        $parentId = $keuzedeel->parent_id;
-
-        // Delete the subdeel
-        $keuzedeel->delete();
-
-        // If the parent exists and has no more children, delete the parent too
-        if ($parentId) {
-            $parent = Keuzedeel::find($parentId);
-            if ($parent && $parent->where('parent_id', $parent->id)->count() === 0) {
-                $parent->delete();
-            }
-        }
-
-        return redirect()->route('home')->with('success', 'Keuzedeel en lege parent succesvol verwijderd.');
     }
-
-
 }
-

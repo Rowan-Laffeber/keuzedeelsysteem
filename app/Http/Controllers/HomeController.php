@@ -92,7 +92,7 @@ class HomeController extends Controller
         foreach ($delen as $deel) {
             $deel->is_ingeschreven = $student->inschrijvingen()
                 ->where('keuzedeel_id', $deel->id)
-                ->where('status', '!=', 'cancelled')
+                ->where('status', '!=', 'afgewezen')
                 ->exists();
             
             // Refresh enrollment count to ensure fresh data

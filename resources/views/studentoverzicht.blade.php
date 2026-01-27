@@ -108,12 +108,24 @@
                         <div class="w-1/4">{{ $inschrijving->keuzedeel->title }}</div>
                         <div class="w-1/6">{{ $inschrijving->keuzedeel_id }}</div>
                         <div class="w-1/6">{{ $inschrijving->priority }}</div>
-                        <div class="w-1/6 text-green-600 font-semibold">
+                        @php
+                            $statusColors = [
+                                'ingediend'   => 'text-yellow-600',
+                                'goedgekeurd' => 'text-green-600',
+                                'afgewezen'   => 'text-red-600',
+                                'afgerond'    => 'text-blue-600',
+                            ];
+
+                            $statusClass = $statusColors[$inschrijving->status] ?? 'text-gray-600';
+                        @endphp
+
+                        <div class="w-1/6 font-semibold {{ $statusClass }}">
                             {{ ucfirst($inschrijving->status) }}
                         </div>
+
                         <div class="w-1/6">
                             <button class="bg-yellow-500 text-white px-3 py-1 rounded font-semibold">
-                                Wijzig status
+                                Verwijderen
                             </button>
                         </div>
                         <div class="w-1/6">

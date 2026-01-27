@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Model;
 use App\Support\StatusHelper;
+use App\Models\Inschrijving;
 
 class Keuzedeel extends Model
 {
@@ -80,11 +81,12 @@ class Keuzedeel extends Model
     {
         return $this->belongsTo(self::class, 'parent_id');
     }
+
     public function keuzedelen()
     {
         return $this->belongsToMany(Keuzedeel::class);
     }
-    
+
     public function students()
     {
         return $this->belongsToMany(Student::class, 'inschrijvings')
@@ -103,13 +105,31 @@ class Keuzedeel extends Model
     public function bevestigdeStudenten()
     {
         return $this->belongsToMany(Student::class, 'inschrijvings')
-            ->wherePivot('status', 'confirmed')
+            ->wherePivot('status', 'goedgekeurd')
             ->withPivot(['status', 'opmerkingen', 'inschrijfdatum'])
             ->withTimestamps()
             ->withCasts([
                 'inschrijfdatum' => 'datetime',
             ]);
     }
+
+    /**
+     * Check if a given priority is full (maximum students reached)
+     */
+    public function isPrioFull(int $priority): bool
+    {
+        $max = $this->maximum_studenten ?? $this->parent?->maximum_studenten ?? null;
+        if (!$max) return false;
+
+        $count = $this->inschrijvingen()
+            ->where('priority', $priority)
+            ->where('status', 'goedgekeurd')
+            ->count();
+
+        return $count >= $max;
+    }
+}
+
     
     // /**
     //  * NIET NODIG, ELKE STUDENT MAG ELK KEUZEDEEL DOEN
@@ -134,9 +154,4 @@ class Keuzedeel extends Model
     //     });
     // }
     
-
-
-
-
-}
 

@@ -7,6 +7,7 @@ use App\Models\Inschrijving;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Services\PriorityStatusService;
 
 class InschrijvingController extends Controller
 {
@@ -22,19 +23,17 @@ class InschrijvingController extends Controller
         $delen = $keuzedeel->delen()->orderBy('volgorde')->get();
         $now = Carbon::now();
 
-        // Compute active enrollments once
         $activeCount = $student
             ? $student->inschrijvingen()
-                ->whereIn('status', ['confirmed', 'pending'])
+                ->whereIn('status', ['goedgekeurd', 'ingediend'])
                 ->count()
             : 0;
 
-        // Prepare info for each deel
         $deelInfo = $delen->map(function ($deel) use ($student, $now, $activeCount) {
             $isIngeschreven = $student
                 ? $student->inschrijvingen()
                     ->where('keuzedeel_id', $deel->id)
-                    ->whereIn('status', ['confirmed','pending'])
+                    ->whereIn('status', ['goedgekeurd', 'ingediend'])
                     ->exists()
                 : false;
 
@@ -42,23 +41,25 @@ class InschrijvingController extends Controller
             $end   = Carbon::parse($deel->eind_inschrijving);
             $inPeriod = $now->between($start, $end);
 
-            // Determine max reached
-            if ($deel->maximum_studenten !== null) {
-                // Max-type subdeel → enforce own max
-                $maxReached = $deel->bevestigdeStudenten()->count() >= $deel->maximum_studenten;
-            } else {
-                // Max-type parent → sum across all siblings
-                $siblingIds = Keuzedeel::where('parent_id', $deel->parent_id)->pluck('id');
-                $totalBevestigde = \App\Models\Inschrijving::whereIn('keuzedeel_id', $siblingIds)
-                    ->where('status', 'confirmed')
+            // Max per priority (just info)
+            $maxReachedByPrio = [];
+            for ($prio = 1; $prio <= 3; $prio++) {
+                $count = Inschrijving::where('keuzedeel_id', $deel->id)
+                    ->where('priority', $prio)
+                    ->where('status', 'goedgekeurd')
                     ->count();
-                $parent = Keuzedeel::find($deel->parent_id);
-                $maxReached = $parent && $parent->maximum_studenten !== null
-                    ? $totalBevestigde >= $parent->maximum_studenten
-                    : false;
+                $maxReachedByPrio[$prio] = $deel->maximum_studenten !== null && $count >= $deel->maximum_studenten;
             }
 
-            $canEnroll = $student && !$isIngeschreven && $activeCount < 3 && $inPeriod && !$maxReached && $deel->actief;
+            $canEnroll = $student && !$isIngeschreven && $activeCount < 3 && $inPeriod && $deel->actief;
+
+            $availablePriorities = [];
+            if ($canEnroll) {
+                foreach ($maxReachedByPrio as $prio => $full) {
+                    if (!$full) $availablePriorities[] = $prio;
+                }
+                if (empty($availablePriorities)) $canEnroll = false;
+            }
 
             return [
                 'id' => $deel->id,
@@ -70,7 +71,8 @@ class InschrijvingController extends Controller
                 'eind_inschrijving' => $end->format('d-m-Y'),
                 'is_ingeschreven' => $isIngeschreven,
                 'in_period' => $inPeriod,
-                'max_reached' => $maxReached,
+                'max_reached_by_prio' => $maxReachedByPrio,
+                'available_priorities' => $availablePriorities,
                 'can_enroll' => $canEnroll,
             ];
         });
@@ -92,105 +94,62 @@ class InschrijvingController extends Controller
             return redirect()->route('home')->with('error', 'Alleen studenten mogen deze pagina bekijken.');
         }
 
+        $student = $user->student;
         $keuzedeelId = $request->input('keuzedeel_id');
-        $priority = $request->input('priority');
+        $priority = (int) $request->input('priority');
         $opmerkingen = $request->input('opmerkingen');
 
-        $student = $user->student;
         $keuzedeel = Keuzedeel::findOrFail($keuzedeelId);
         $now = Carbon::now();
 
-        // Check if keuzedeel is active
-        if (!$keuzedeel->actief) {
-            return back()->with('error', 'Dit keuzedeel is niet actief.');
-        }
-
-        // Check enrollment period
+        // Validation
+        if (!$keuzedeel->actief) return back()->with('error', 'Dit keuzedeel is niet actief.');
         $start = Carbon::parse($keuzedeel->start_inschrijving);
-        $end   = Carbon::parse($keuzedeel->eind_inschrijving);
-        if (!$now->between($start, $end)) {
-            return back()->with('error', 'De inschrijvingsperiode is gesloten.');
-        }
+        $end = Carbon::parse($keuzedeel->eind_inschrijving);
+        if (!$now->between($start, $end)) return back()->with('error', 'De inschrijvingsperiode is gesloten.');
 
-        // Max 3 active enrollments
         $activeEnrollments = $student->inschrijvingen()
-            ->whereIn('status', ['confirmed', 'pending'])
+            ->whereIn('status', ['goedgekeurd', 'ingediend'])
             ->get();
 
-        if ($activeEnrollments->count() >= 3) {
-            return back()->with('error', 'Je hebt al 3 inschrijvingen. Je kunt geen extra inschrijving doen.');
-        }
-
-        // Priority check (only confirmed/pending)
-        if ($activeEnrollments->where('priority', $priority)->count() > 0) {
-            return back()->with('error', "Je hebt al een inschrijving met prioriteit $priority.");
-        }
-
-        // Already enrolled check
-        $existing = $student->inschrijvingen()
-            ->where('keuzedeel_id', $keuzedeelId)
-            ->whereIn('status', ['confirmed', 'pending'])
-            ->first();
-
-        if ($existing) {
+        if ($activeEnrollments->count() >= 3) return back()->with('error', 'Je hebt al 3 inschrijvingen.');
+        if ($activeEnrollments->where('priority', $priority)->count() > 0) return back()->with('error', "Je hebt al een inschrijving met prioriteit $priority.");
+        if ($student->inschrijvingen()->where('keuzedeel_id', $keuzedeelId)->exists()) {
             return back()->with('error', 'Je bent al ingeschreven voor dit keuzedeel.');
         }
 
-        // --- MAX STUDENTS LOGIC ---
-        if ($keuzedeel->maximum_studenten !== null) {
-            // Max-type subdeel → enforce own max
-            $maxStudents = $keuzedeel->maximum_studenten;
-            $totalBevestigde = $keuzedeel->bevestigdeStudenten()->count();
-        } else {
-            // Max-type parent → sum across all siblings
-            $parent = Keuzedeel::find($keuzedeel->parent_id);
-
-            if (!$parent || $parent->maximum_studenten === null) {
-                return back()->with('error', 'Maximum aantal inschrijvingen voor dit keuzedeel is nog niet ingesteld.');
-            }
-
-            $maxStudents = $parent->maximum_studenten;
-            $siblingIds = Keuzedeel::where('parent_id', $keuzedeel->parent_id)->pluck('id');
-            $totalBevestigde = Inschrijving::whereIn('keuzedeel_id', $siblingIds)
-                ->where('status', 'confirmed')
-                ->count();
-        }
-
-        if ($maxStudents !== null && $totalBevestigde >= $maxStudents) {
-            return back()->with('error', 'Maximum aantal inschrijvingen bereikt voor dit keuzedeel.');
-        }
-
-        // Create enrollment
+        // Create as "ingediend"; PriorityStatusService will adjust
         Inschrijving::create([
             'id' => Str::uuid(),
             'student_id' => $student->id,
             'keuzedeel_id' => $keuzedeelId,
-            'status' => 'confirmed',
             'priority' => $priority,
             'opmerkingen' => $opmerkingen,
+            'status' => 'ingediend',
             'inschrijfdatum' => $now,
         ]);
+
+        // Recalculate statuses for this student
+        PriorityStatusService::recalc(studentId: $student->id);
 
         return back()->with('success', 'Succesvol ingeschreven!');
     }
 
     /**
-     * Hard delete an enrollment
+     * Delete an enrollment
      */
     public function destroy(Request $request)
     {
         $student = auth()->user()->student;
         $keuzedeelId = $request->input('keuzedeel_id');
 
-        $inschrijving = $student->inschrijvingen()
-            ->where('keuzedeel_id', $keuzedeelId)
-            ->first();
-
-        if (!$inschrijving) {
-            return back()->with('error', 'Geen inschrijving gevonden om te verwijderen.');
-        }
+        $inschrijving = $student->inschrijvingen()->where('keuzedeel_id', $keuzedeelId)->first();
+        if (!$inschrijving) return back()->with('error', 'Geen inschrijving gevonden om te verwijderen.');
 
         $inschrijving->delete();
+
+        // Recalculate statuses for this student
+        PriorityStatusService::recalc(studentId: $student->id);
 
         return back()->with('success', 'Inschrijving verwijderd.');
     }

@@ -9,20 +9,30 @@ use Carbon\Carbon;
 
 $now = Carbon::now();
 $student = auth()->user()->student ?? null;
+
+// Student active priorities and count
 $activeInschrijvingen = $student
     ? $student->inschrijvingen()
-        ->whereIn('status', ['confirmed','pending'])
+        ->whereIn('status', ['goedgekeurd','ingediend', 'afgewezen'])
         ->pluck('priority')
-        ->map(fn($p) => (int)$p) // <-- force integers
+        ->map(fn($p) => (int)$p)
         ->toArray()
     : [];
 $activeCount = count($activeInschrijvingen);
+
+// Determine for each deel which priorities are full
+$maxReachedByPrio = [];
+foreach ($delen as $deel) {
+    $maxReachedByPrio[] = [
+        1 => $deel->isPrioFull(1),
+        2 => $deel->isPrioFull(2),
+        3 => $deel->isPrioFull(3),
+    ];
+}
 @endphp
 
-
 <h1 id="hoofdtitel" class="text-3xl font-bold mb-4">
-    {{ $keuzedeel->title }} -
-    <span id="huidig-deel-titel">{{ $delen[0]->id ?? '' }}</span>
+    {{ $keuzedeel->title }} - <span id="huidig-deel-titel">{{ $delen[0]->id ?? '' }}</span>
 </h1>
 
 <div class="flex items-start gap-6 mb-6">
@@ -214,6 +224,7 @@ $eindData = $delen->pluck('eind_inschrijving');
 <script>
 const studentActivePriorities = @json($activeInschrijvingen);
 const studentActiveCount = @json($activeCount);
+const maxReachedByPrio = @json($maxReachedByPrio);
 
 const ids = @json($ids);
 const beschrijvingen = @json($beschrijvingen);
@@ -224,12 +235,10 @@ const eindData = @json($eindData);
 
 function formatDateDMY(dateStr){
     if(!dateStr) return '';
-    // Split on T for ISO string, remove Z and microseconds
-    let [datePart] = dateStr.split('T'); // "2025-12-29"
+    let [datePart] = dateStr.split('T');
     let [year, month, day] = datePart.split('-');
     return `${day}-${month}-${year}`;
 }
-
 
 function selectDeelById(id){
     document.querySelectorAll('.deel-btn').forEach((btn,i)=>{
@@ -248,7 +257,6 @@ function selectDeelById(id){
                 ? 'px-4 py-2 rounded text-white font-semibold flex items-center bg-green-600'
                 : 'px-4 py-2 rounded text-white font-semibold flex items-center bg-red-600';
 
-            // Dynamic date update
             const datumBox = document.getElementById('datum-box');
             datumBox.innerHTML = `
                 <div><p>Inschrijvingsperiode:</p></div>
@@ -283,8 +291,13 @@ function openInschrijvingModal(id){
     const select = document.getElementById('priority-select');
     select.innerHTML = '<option value="">Kies prioriteit</option>';
 
-    [1,2,3].forEach(p=>{
-        if(!studentActivePriorities.includes(p)){
+    const deelIndex = ids.indexOf(id);
+
+    [1,2,3].forEach(p => {
+        const studentHasPrio = studentActivePriorities.includes(p);
+        const prioFull = maxReachedByPrio[deelIndex][p];
+
+        if(!studentHasPrio && !prioFull){
             const opt = document.createElement('option');
             opt.value = p;
             opt.textContent = p;
@@ -292,13 +305,11 @@ function openInschrijvingModal(id){
         }
     });
 
-    // Disable submit/select if all priorities are taken
     select.disabled = select.options.length <= 1;
 
     document.getElementById('inschrijving-modal').classList.remove('hidden');
     document.getElementById('inschrijving-modal').classList.add('flex');
 }
-
 
 function closeInschrijvingModal(){
     document.getElementById('inschrijving-modal').classList.add('hidden');

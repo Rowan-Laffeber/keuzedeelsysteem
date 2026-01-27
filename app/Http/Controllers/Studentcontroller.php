@@ -17,6 +17,7 @@ class StudentController extends Controller
         }
         
         $query = Student::with(['user', 'inschrijvingen.keuzedeel']);
+        // ->paginate(15); kijk ernaar om pagination te maken
 
         // --- Search filter: name, studentnummer, keuzedeel title ---
         if ($request->filled('search')) {
