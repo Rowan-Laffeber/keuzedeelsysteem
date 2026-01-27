@@ -171,8 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     firstChoice.addEventListener('change', updateOptions);
-    secondChoice.addEventListener
-    ('change', updateOptions);
+    secondChoice.addEventListener('change', updateOptions);
     thirdChoice.addEventListener('change', updateOptions);
 });
 </script>

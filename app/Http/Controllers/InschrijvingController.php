@@ -136,8 +136,8 @@ class InschrijvingController extends Controller
             'inschrijfdatum' => $now,
         ]);
 
-        // Don't run PriorityStatusService immediately - let the enrollment stand
-        // PriorityStatusService::recalc(studentId: $student->id);
+        // recalculate statusses fo this student
+        PriorityStatusService::recalc(studentId: $student->id);
 
         return back()->with('success', 'Succesvol ingeschreven!');
     }
@@ -155,8 +155,8 @@ class InschrijvingController extends Controller
 
         $inschrijving->delete();
 
-        // Don't run PriorityStatusService immediately
-        // PriorityStatusService::recalc(studentId: $student->id);
+        // Recalculate statusses for this student
+        PriorityStatusService::recalc(studentId: $student->id);
 
         return back()->with('success', 'Succesvol uitgeschreven!');
     }
