@@ -10,6 +10,9 @@ class PriorityStatusService
 {
     public static function recalc(?Keuzedeel $keuzedeel = null, ?string $studentId = null)
     {
+        // Temporarily disabled to test enrollment logic
+        return;
+        
         $query = Inschrijving::with('keuzedeel');
 
         if ($keuzedeel) {
@@ -28,42 +31,81 @@ class PriorityStatusService
         DB::transaction(function () use ($inschrijvingen) {
             foreach ($inschrijvingen as $studentId => $studentInschrijvingen) {
 
-                // Reset all statuses
-                foreach ($studentInschrijvingen as $i) {
-                    $i->status = $i->keuzedeel->actief ? 'ingediend' : 'afgewezen';
-                    $i->save();
-                }
+                // Sort by priority
+                $sortedByPriority = $studentInschrijvingen->sortBy('priority');
+                
+                // Check each priority level
+                foreach ([1, 2, 3] as $priority) {
+                    $priorityInschrijvingen = $sortedByPriority->where('priority', $priority);
 
-                // Approve first eligible inschrijving in priority order
-                $approved = false;
-
-                foreach ([1, 2, 3] as $prio) {
-                    $prioInschrijvingen = $studentInschrijvingen->where('priority', $prio);
-
-                    foreach ($prioInschrijvingen as $i) {
-                        $deel = $i->keuzedeel;
+                    foreach ($priorityInschrijvingen as $inschrijving) {
+                        $deel = $inschrijving->keuzedeel;
 
                         // Skip if inactive
-                        if (!$deel->actief) continue;
+                        if (!$deel->actief) {
+                            $inschrijving->status = 'afgewezen';
+                            $inschrijving->save();
+                            continue;
+                        }
 
-                        // Skip if max reached
+                        // Check if minimum is reached for this keuzedeel
                         $currentApproved = Inschrijving::where('keuzedeel_id', $deel->id)
                             ->where('status', 'goedgekeurd')
                             ->count();
 
-                        if ($deel->maximum_studenten !== null && $currentApproved >= $deel->maximum_studenten) {
+                        // Don't reject based on minimum if this is the only student or if priority is 1
+                        $totalEnrollments = Inschrijving::where('keuzedeel_id', $deel->id)
+                            ->whereIn('status', ['goedgekeurd', 'aangemeld'])
+                            ->count();
+                        
+                        if ($deel->minimum_studenten && $currentApproved < $deel->minimum_studenten && $totalEnrollments >= $deel->minimum_studenten) {
+                            $inschrijving->status = 'afgewezen';
+                            $inschrijving->save();
                             continue;
                         }
 
-                        // Approve first eligible
-                        if (!$approved) {
-                            $i->status = 'goedgekeurd';
-                            $i->save();
-                            $approved = true;
+                        // Check if maximum is reached
+                        if ($deel->maximum_studenten !== null && $currentApproved >= $deel->maximum_studenten) {
+                            $inschrijving->status = 'afgewezen';
+                            $inschrijving->save();
+                            continue;
+                        }
+
+                        // Set status based on priority and availability
+                        if ($priority === 1) {
+                            // Priority 1 is always approved if available
+                            $inschrijving->status = 'goedgekeurd';
+                            $inschrijving->save();
+                        } else {
+                            // Priority 2 & 3 are initially aangemeld, but check if higher priority was approved
+                            $higherPriorityApproved = $studentInschrijvingen
+                                ->where('priority', '<', $priority)
+                                ->where('status', 'goedgekeurd')
+                                ->count() > 0;
+
+                            if ($higherPriorityApproved) {
+                                // Higher priority is approved, keep this as aangemeld
+                                $inschrijving->status = 'aangemeld';
+                                $inschrijving->save();
+                            } else {
+                                // No higher priority approved, check if this can be approved
+                                $hasApproved = $studentInschrijvingen
+                                    ->where('status', 'goedgekeurd')
+                                    ->count() > 0;
+
+                                if (!$hasApproved) {
+                                    // No approved enrollment yet, approve this one
+                                    $inschrijving->status = 'goedgekeurd';
+                                    $inschrijving->save();
+                                } else {
+                                    // Keep as aangemeld
+                                    $inschrijving->status = 'aangemeld';
+                                    $inschrijving->save();
+                                }
+                            }
                         }
                     }
                 }
-
             }
         });
     }

@@ -109,7 +109,7 @@ class InschrijvingController extends Controller
         if (!$now->between($start, $end)) return back()->with('error', 'De inschrijvingsperiode is gesloten.');
 
         $activeEnrollments = $student->inschrijvingen()
-            ->whereIn('status', ['goedgekeurd', 'ingediend'])
+            ->whereIn('status', ['goedgekeurd', 'aangemeld'])
             ->get();
 
         if ($activeEnrollments->count() >= 3) return back()->with('error', 'Je hebt al 3 inschrijvingen.');
@@ -118,19 +118,26 @@ class InschrijvingController extends Controller
             return back()->with('error', 'Je bent al ingeschreven voor dit keuzedeel.');
         }
 
-        // Create as "ingediend"; PriorityStatusService will adjust
+        // Set initial status based on priority
+        $initialStatus = match($priority) {
+            1 => 'goedgekeurd',  // Priority 1 is immediately approved
+            2 => 'aangemeld',    // Priority 2 is initially waiting
+            3 => 'aangemeld',    // Priority 3 is initially waiting
+            default => 'aangemeld'
+        };
+
         Inschrijving::create([
             'id' => Str::uuid(),
             'student_id' => $student->id,
             'keuzedeel_id' => $keuzedeelId,
             'priority' => $priority,
             'opmerkingen' => $opmerkingen,
-            'status' => 'ingediend',
+            'status' => $initialStatus,
             'inschrijfdatum' => $now,
         ]);
 
-        // Recalculate statuses for this student
-        PriorityStatusService::recalc(studentId: $student->id);
+        // Don't run PriorityStatusService immediately - let the enrollment stand
+        // PriorityStatusService::recalc(studentId: $student->id);
 
         return back()->with('success', 'Succesvol ingeschreven!');
     }
@@ -148,9 +155,9 @@ class InschrijvingController extends Controller
 
         $inschrijving->delete();
 
-        // Recalculate statuses for this student
-        PriorityStatusService::recalc(studentId: $student->id);
+        // Don't run PriorityStatusService immediately
+        // PriorityStatusService::recalc(studentId: $student->id);
 
-        return back()->with('success', 'Inschrijving verwijderd.');
+        return back()->with('success', 'Succesvol uitgeschreven!');
     }
 }

@@ -35,6 +35,41 @@ class HomeController extends Controller
             ->orderBy('volgorde')
             ->get();
 
+        // Add enrollment status to parents based on child enrollments
+        if ($user->role === 'student') {
+            $student = $user->student;
+            
+            foreach ($parents as $parent) {
+                // Check if student is enrolled in any child of this parent
+                $hasEnrollment = $student->inschrijvingen()
+                    ->whereHas('keuzedeel', function($query) use ($parent) {
+                        $query->where('parent_id', $parent->id);
+                    })
+                    ->where('status', '!=', 'afgewezen')
+                    ->exists();
+                
+                $parent->is_ingeschreven = $hasEnrollment;
+                
+                // Get enrollment details for status display
+                if ($hasEnrollment) {
+                    $enrollment = $student->inschrijvingen()
+                        ->whereHas('keuzedeel', function($query) use ($parent) {
+                            $query->where('parent_id', $parent->id);
+                        })
+                        ->where('status', '!=', 'afgewezen')
+                        ->with('keuzedeel')
+                        ->orderBy('priority')
+                        ->first();
+                    
+                    if ($enrollment) {
+                        $parent->enrollment_status = $enrollment->status;
+                        $parent->enrollment_priority = $enrollment->priority;
+                        $parent->enrollment_keuzedeel = $enrollment->keuzedeel;
+                    }
+                }
+            }
+        }
+
         return view('home', compact('parents'));
     }
 

@@ -43,6 +43,29 @@ class UserSeeder extends Seeder
             ]
         );
 
-        $this->command->info('✅ Admin and docent created.');
+        // 🔹 Add student user
+        $studentUser = User::firstOrCreate(
+            ['email' => '1234567@student.school.nl'],
+            [
+                'id' => (string) Str::uuid(),
+                'name' => 'Test Student',
+                'password' => Hash::make('password'),
+                'role' => 'student',
+            ]
+        );
+
+        // 🔹 Add corresponding student record
+        \App\Models\Student::firstOrCreate(
+            ['user_id' => $studentUser->id],
+            [
+                'id' => (string) Str::uuid(),
+                'studentnummer' => '1234567',
+                'opleidingsnummer' => '123456',
+                'cohort_year' => '2024',
+                'roostergroep' => 'A1',
+            ]
+        );
+
+        $this->command->info('✅ Admin, docent, and student created.');
     }
 }

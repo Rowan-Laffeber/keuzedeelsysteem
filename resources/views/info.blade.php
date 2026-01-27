@@ -113,8 +113,20 @@ foreach ($delen as $deel) {
             if(!$deel->actief) $reason = 'Keuzedeel niet actief';
             elseif(!$inPeriod) $reason = 'Buiten inschrijvingsperiode';
             elseif($activeCount >= 3) $reason = 'Maximum inschrijvingen bereikt';
+            
+            // Debug: Check actual enrollment status
+            $actualEnrollment = auth()->user()->student->inschrijvingen()->where('keuzedeel_id', $deel->id)->first();
         @endphp
-
+        
+        {{-- Debug info --}}
+        <div class="bg-gray-100 border border-gray-300 text-gray-700 px-4 py-2 rounded mb-2 text-sm">
+            <strong>Debug:</strong> is_ingeschreven = {{ $deel->is_ingeschreven ? 'Yes' : 'No' }}
+            @if($actualEnrollment)
+                | Actual Status: {{ $actualEnrollment->status }}
+                | Priority: {{ $actualEnrollment->priority }}
+            @endif
+        </div>
+ 
         @if($deel->is_ingeschreven)
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-2">
                 Je bent al ingeschreven voor dit keuzedeel.
