@@ -29,6 +29,14 @@ foreach ($delen as $deel) {
         3 => $deel->isPrioFull(3),
     ];
 }
+
+// Prepare arrays for JS
+$ids = $delen->pluck('id')->toArray();
+$beschrijvingen = $delen->map(fn($d) => $d->description ?? '')->toArray();
+$actief = $delen->pluck('actief')->toArray();
+$aantallen = $delen->pluck('ingeschreven_count')->toArray();
+$startData = $delen->pluck('start_inschrijving')->toArray();
+$eindData = $delen->pluck('eind_inschrijving')->toArray();
 @endphp
 
 <h1 id="hoofdtitel" class="text-3xl font-bold mb-4">
@@ -90,17 +98,31 @@ foreach ($delen as $deel) {
 </div>
 
 {{-- Description --}}
-<section class="mb-4 p-4 border rounded bg-gray-50 text-gray-800">
-    <div id="deel-beschrijving">
-        {{ $delen[0]->description ?? '' }}
+<section class="mb-4 p-4 border rounded bg-gray-50 text-gray-800 min-h-64 flex flex-col justify-between">
+    <div id="deel-beschrijving">{{ $delen[0]->description ?? '' }}</div>
+
+    <!-- Paragraph navigation with page number -->
+    <div id="paragraph-nav" class="mt-2 flex justify-between items-center">
+        <button id="prev-paragraph" onclick="prevParagraph()"
+                class="px-3 py-1 rounded bg-gray-300 hover:bg-gray-400" disabled>
+            Vorige
+        </button>
+
+        <span id="paragraph-indicator" class="text-sm text-gray-600">1 / 1</span>
+
+        <button id="next-paragraph" onclick="nextParagraph()"
+                class="px-3 py-1 rounded bg-gray-300 hover:bg-gray-400" disabled>
+            Volgende
+        </button>
     </div>
 </section>
+
+
 
 {{-- Forms --}}
 <div class="flex flex-col mt-4 gap-4" id="form-container">
 @foreach($delen as $index => $deel)
 <div class="deel-form" data-id="{{ $deel->id }}" style="display: {{ $index === 0 ? 'block' : 'none' }}">
-
     @php
         $inPeriod = $now->between($deel->start_inschrijving, $deel->eind_inschrijving);
         $canEnroll = $student && $activeCount < 3 && !$deel->is_ingeschreven && $inPeriod && $deel->actief;
@@ -114,22 +136,8 @@ foreach ($delen as $deel) {
             elseif(!$inPeriod) $reason = 'Buiten inschrijvingsperiode';
             elseif($activeCount >= 3) $reason = 'Maximum inschrijvingen bereikt';
             
-            // Debug: Check actual enrollment status
-            $actualEnrollment = auth()->user()->student->inschrijvingen()->where('keuzedeel_id', $deel->id)->first();
-        @endphp
-        
-        {{-- Debug info --}}
-        <div class="bg-gray-100 border border-gray-300 text-gray-700 px-4 py-2 rounded mb-2 text-sm">
-            <strong>Debug:</strong> is_ingeschreven = {{ $deel->is_ingeschreven ? 'Yes' : 'No' }}
-            @if($actualEnrollment)
-                | Actual Status: {{ $actualEnrollment->status }}
-                | Priority: {{ $actualEnrollment->priority }}
-            @endif
-        </div>
- 
-        @php
-            $inschrijving = auth()->user()->student
-                ? auth()->user()->student->inschrijvingen()->where('keuzedeel_id', $deel->id)->first()
+            $inschrijving = $student
+                ? $student->inschrijvingen()->where('keuzedeel_id', $deel->id)->first()
                 : null;
         @endphp
 
@@ -176,7 +184,6 @@ foreach ($delen as $deel) {
             Pas info aan
         </a>
     @endif
-
 </div>
 @endforeach
 </div>
@@ -237,15 +244,6 @@ foreach ($delen as $deel) {
 </div>
 @endif
 
-@php
-$ids = $delen->pluck('id');
-$beschrijvingen = $delen->pluck('description');
-$actief = $delen->pluck('actief');
-$aantallen = $delen->pluck('ingeschreven_count');
-$startData = $delen->pluck('start_inschrijving');
-$eindData = $delen->pluck('eind_inschrijving');
-@endphp
-
 <script>
 const studentActivePriorities = @json($activeInschrijvingen);
 const studentActiveCount = @json($activeCount);
@@ -257,6 +255,9 @@ const actief = @json($actief);
 const aantallen = @json($aantallen);
 const startData = @json($startData);
 const eindData = @json($eindData);
+
+let paragraphs = [];
+let currentParagraphIndex = 0;
 
 function formatDateDMY(dateStr){
     if(!dateStr) return '';
@@ -273,7 +274,8 @@ function selectDeelById(id){
 
         if(active){
             document.getElementById('huidig-deel-titel').textContent = ids[i];
-            document.getElementById('deel-beschrijving').textContent = beschrijvingen[i];
+            updateDescription(id);
+
             document.querySelector('#aantal-ingeschreven span').textContent = aantallen[i] ?? 0;
 
             const box = document.getElementById('actief-status-box');
@@ -303,6 +305,50 @@ function selectDeelById(id){
     window.history.replaceState({}, '', url);
 }
 
+function updateDescription(id){
+    const index = ids.indexOf(id);
+    const desc = beschrijvingen[index] || '';
+    paragraphs = desc.split(/\r?\n/).filter(p => p.trim() !== '');
+    currentParagraphIndex = 0;
+    showParagraph();
+}
+
+function showParagraph(){
+    const descContainer = document.getElementById('deel-beschrijving');
+    const indicator = document.getElementById('paragraph-indicator');
+
+    if(paragraphs.length === 0){
+        descContainer.innerHTML = '<p>Geen beschrijving beschikbaar.</p>';
+        document.getElementById('paragraph-nav').style.display = 'none';
+        return;
+    }
+
+    descContainer.innerHTML = paragraphs[currentParagraphIndex];
+
+    document.getElementById('prev-paragraph').disabled = currentParagraphIndex === 0;
+    document.getElementById('next-paragraph').disabled = currentParagraphIndex === paragraphs.length - 1;
+
+    // Update page indicator
+    indicator.textContent = `${currentParagraphIndex + 1} / ${paragraphs.length}`;
+
+    document.getElementById('paragraph-nav').style.display = paragraphs.length > 1 ? 'flex' : 'none';
+}
+
+
+function nextParagraph(){
+    if(currentParagraphIndex < paragraphs.length - 1){
+        currentParagraphIndex++;
+        showParagraph();
+    }
+}
+
+function prevParagraph(){
+    if(currentParagraphIndex > 0){
+        currentParagraphIndex--;
+        showParagraph();
+    }
+}
+
 document.querySelectorAll('.deel-btn').forEach(btn =>
     btn.addEventListener('click', () => selectDeelById(btn.dataset.id))
 );
@@ -317,12 +363,9 @@ function openInschrijvingModal(id){
     select.innerHTML = '<option value="">Kies prioriteit</option>';
 
     const deelIndex = ids.indexOf(id);
-
     [1,2,3].forEach(p => {
         const studentHasPrio = studentActivePriorities.includes(p);
         const prioFull = maxReachedByPrio[deelIndex][p];
-
-        // Only show option if student hasn't used it AND it is not full
         if(!studentHasPrio && !prioFull){
             const opt = document.createElement('option');
             opt.value = p;
@@ -331,14 +374,11 @@ function openInschrijvingModal(id){
         }
     });
 
-    // Disable select if no options are available
     select.disabled = select.options.length <= 1;
 
     document.getElementById('inschrijving-modal').classList.remove('hidden');
     document.getElementById('inschrijving-modal').classList.add('flex');
 }
-
-
 
 function closeInschrijvingModal(){
     document.getElementById('inschrijving-modal').classList.add('hidden');
