@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Student;
 use App\Models\Keuzedeel;
+use App\Services\PriorityStatusService;
 
 class StudentController extends Controller
 {
@@ -75,5 +76,37 @@ class StudentController extends Controller
 
         // --- Return full view ---
         return view('studentoverzicht', compact('students', 'keuzedelen', 'roostergroepen', 'opleidingen'));
+    }
+
+
+
+    public function destroy(Student $student)
+    {
+        $user = auth()->user();
+
+        if ($user->role !== 'admin') {
+            return back()->with('error', 'Alleen admins mogen studenten verwijderen.');
+        }
+
+        // Collect affected keuzedelen BEFORE deletion
+        $keuzedeelIds = $student->inschrijvingen()
+            ->pluck('keuzedeel_id')
+            ->unique()
+            ->toArray();
+
+        // Delete all inschrijvingen
+        $student->inschrijvingen()->delete();
+
+        // Delete linked user account
+        if ($student->user) {
+            $student->user->delete();
+        }
+
+        // Delete student record
+        $student->delete();
+
+        return redirect()
+            ->route('studentoverzicht')
+            ->with('success', 'Student, gebruiker en inschrijvingen zijn definitief verwijderd.');
     }
 }

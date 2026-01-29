@@ -53,6 +53,8 @@ Route::middleware('auth')->group(function () {
         Route::delete('/keuzedeel/{keuzedeel}', [KeuzedeelController::class, 'destroy'])->name('keuzedeel.destroy');
 
         Route::get('/studentoverzicht', [StudentController::class, 'index'])->name('studentoverzicht');
+        Route::delete('/student/{student}', [StudentController::class, 'destroy'])->name('student.destroy');
+
 
 
     // });

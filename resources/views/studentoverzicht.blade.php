@@ -60,7 +60,7 @@
         <div class="w-1/6">Opleidingsnummer</div>
         <div class="w-1/6">Cohort</div>
         <div class="w-1/6">Roostergroep</div>
-        <div class="w-1/6">Inschrijvingen</div>
+        <div class="w-1/6">Inschrijvingen/Functies</div>
     </div>
 
     {{-- Students container --}}
@@ -83,7 +83,7 @@
                     <div class="w-full sm:w-1/6 mt-2 sm:mt-0">
                         @if($student->inschrijvingen->count())
                         <button class="toggle-inschrijvingen bg-blue-600 text-white px-4 py-1 rounded font-semibold w-full">
-                            Toon inschrijvingen
+                            Toon extra info
                         </button>
                         @endif
                     </div>
@@ -98,7 +98,34 @@
                         <div class="w-1/6">Prioriteit</div>
                         <div class="w-1/6">Status</div>
                         <div class="w-1/6">Functies</div>
-                        <div class="w-1/6"></div> {{-- Lege div voor styling --}}
+                        @if(auth()->user()->role === 'admin')
+                        <div class="w-1/6">
+                            <form method="POST"
+                                action="{{ route('student.destroy', $student) }}"
+                                onsubmit="event.preventDefault();
+                                            openConfirmModal(
+                                            this,
+                                            'Student verwijderen',
+                                            `
+                                            <strong>LET OP:</strong><br><br>
+                                            • Alle inschrijvingen worden verwijderd<br>
+                                            • Het gebruikersaccount wordt verwijderd<br>
+                                            • Deze actie kan <strong>NIET</strong> ongedaan worden gemaakt
+                                            `
+                                            );">
+                                @csrf
+                                @method('DELETE')
+
+                                <button
+                                    type="submit"
+                                    class="bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded font-semibold w-full">
+                                    Verwijder student
+                                </button>
+                            </form>
+
+                        </div>
+                        @endif
+
                     </div>
 
                     @foreach($student->inschrijvingen as $inschrijving)
@@ -124,15 +151,26 @@
                         </div>
 
                         <div class="w-1/6">
-                            <form method="POST" action="{{ route('uitschrijven.destroy') }}" onsubmit="return confirm('Weet je zeker dat je deze inschrijving wilt verwijderen?');">
+                            <form method="POST"
+                                action="{{ route('uitschrijven.destroy') }}"
+                                onsubmit="event.preventDefault();
+                                            openConfirmModal(
+                                            this,
+                                            'Inschrijving verwijderen',
+                                            'Weet je zeker dat je deze <strong>inschrijving</strong> wilt verwijderen?'
+                                            );">
                                 @csrf
                                 @method('DELETE')
+
                                 <input type="hidden" name="keuzedeel_id" value="{{ $inschrijving->keuzedeel_id }}">
                                 <input type="hidden" name="student_id" value="{{ $student->id }}">
-                                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded font-semibold">
+
+                                <button type="submit"
+                                        class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded font-semibold">
                                     Verwijderen
                                 </button>
                             </form>
+
                         </div>
 
                         <div class="w-1/6">
@@ -190,6 +228,35 @@
             @endif
         </nav>
     </div>
+    {{-- Global Confirm Modal --}}
+    <div id="confirm-modal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50">
+
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-3" id="confirm-title">
+                Bevestigen
+            </h2>
+
+            <p class="text-gray-700 mb-6" id="confirm-message">
+                Weet je zeker dat je wilt doorgaan?
+            </p>
+
+            <div class="flex justify-end gap-3">
+                <button
+                    onclick="closeConfirmModal()"
+                    class="px-4 py-2 rounded border font-semibold">
+                    Annuleren
+                </button>
+
+                <button
+                    id="confirm-submit"
+                    class="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-semibold">
+                    Verwijderen
+                </button>
+            </div>
+        </div>
+    </div>
+
 
 
 </div>
@@ -298,5 +365,28 @@ window.addEventListener('DOMContentLoaded', () => {
     if (urlParams.has('opleiding')) opleidingFilter.value = urlParams.get('opleiding');
     applyFilters();
 });
+
+
+
+let confirmForm = null;
+
+function openConfirmModal(form, title, message) {
+    confirmForm = form;
+
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-message').innerHTML = message;
+
+    document.getElementById('confirm-modal').classList.remove('hidden');
+    document.getElementById('confirm-modal').classList.add('flex');
+}
+
+function closeConfirmModal() {
+    confirmForm = null;
+    document.getElementById('confirm-modal').classList.add('hidden');
+}
+
+document.getElementById('confirm-submit').onclick = () => {
+    if (confirmForm) confirmForm.submit();
+};
 </script>
 @endsection

@@ -218,9 +218,6 @@ class InschrijvingController extends Controller
         // Recalculate priorities/statuses for this student and keuzedeel
         PriorityStatusService::recalc(studentId: $student->id);
 
-        // Also recalc the keuzedeel itself if needed
-        $keuzedeel = \App\Models\Keuzedeel::find($keuzedeelId);
-        PriorityStatusService::recalc($keuzedeel);
 
         return back()->with('success', 'Inschrijving succesvol verwijderd!');
     }
