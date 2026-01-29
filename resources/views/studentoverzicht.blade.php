@@ -124,10 +124,17 @@
                         </div>
 
                         <div class="w-1/6">
-                            <button class="bg-yellow-500 text-white px-3 py-1 rounded font-semibold">
-                                Verwijderen
-                            </button>
+                            <form method="POST" action="{{ route('uitschrijven.destroy') }}" onsubmit="return confirm('Weet je zeker dat je deze inschrijving wilt verwijderen?');">
+                                @csrf
+                                @method('DELETE')
+                                <input type="hidden" name="keuzedeel_id" value="{{ $inschrijving->keuzedeel_id }}">
+                                <input type="hidden" name="student_id" value="{{ $student->id }}">
+                                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded font-semibold">
+                                    Verwijderen
+                                </button>
+                            </form>
                         </div>
+
                         <div class="w-1/6">
                             <a href="{{ url('/keuzedeel/' . $inschrijving->keuzedeel->parent_id . '?id=' . $inschrijving->keuzedeel->id) }}"
                                class="bg-gray-500 text-white px-3 py-1 rounded font-semibold">

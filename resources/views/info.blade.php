@@ -181,6 +181,7 @@ $eindData = $delen->pluck('eind_inschrijving')->toArray();
             @if($inschrijving->status !== 'afgerond')
                 <form method="POST" action="{{ route('uitschrijven.destroy') }}">
                     @csrf
+                    @method('DELETE')
                     <input type="hidden" name="keuzedeel_id" value="{{ $deel->id }}">
                     <button type="submit"
                             class="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded ml-2">

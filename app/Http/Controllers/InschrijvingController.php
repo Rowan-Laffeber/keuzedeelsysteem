@@ -177,30 +177,53 @@ class InschrijvingController extends Controller
  */
     public function destroy(Request $request)
     {
-        $student = auth()->user()->student;
+        $user = auth()->user();
         $keuzedeelId = $request->input('keuzedeel_id');
 
-        $inschrijving = $student->inschrijvingen()
-            ->where('keuzedeel_id', $keuzedeelId)
-            ->first();
+        // Determine the inschrijving to delete
+        if ($user->role === 'admin') {
+            $studentId = $request->input('student_id');
+            if (!$studentId) {
+                return back()->with('error', 'Geen student geselecteerd voor deze inschrijving.');
+            }
+
+            $inschrijving = Inschrijving::where('keuzedeel_id', $keuzedeelId)
+                ->where('student_id', $studentId)
+                ->first();
+        } else {
+            $student = $user->student;
+            $inschrijving = $student->inschrijvingen()
+                ->where('keuzedeel_id', $keuzedeelId)
+                ->first();
+        }
 
         if (!$inschrijving) {
             return back()->with('error', 'Geen inschrijving gevonden om te verwijderen.');
         }
 
-        // Block deletion if status is 'afgerond'
-        if ($inschrijving->status === 'afgerond') {
+        // Keep the actual student ID for recalc
+        $studentId = $inschrijving->student_id;
+
+        // Block deletion for students if status is 'afgerond'
+        if ($user->role !== 'admin' && $inschrijving->status === 'afgerond') {
             return back()->with('error', 'Je kunt deze inschrijving niet verwijderen omdat de status afgerond is.');
         }
 
+        // Delete the inschrijving
         $inschrijving->delete();
 
-        // Recalculate statuses for affected students (only for this keuzedeel)
-        PriorityStatusService::recalc(Keuzedeel::find($keuzedeelId));
+        // Reload the student fresh from the DB
+        $student = \App\Models\Student::find($studentId);
 
-        return back()->with('success', 'Succesvol uitgeschreven!');
+        // Recalculate priorities/statuses for this student and keuzedeel
+        PriorityStatusService::recalc(studentId: $student->id);
+
+        // Also recalc the keuzedeel itself if needed
+        $keuzedeel = \App\Models\Keuzedeel::find($keuzedeelId);
+        PriorityStatusService::recalc($keuzedeel);
+
+        return back()->with('success', 'Inschrijving succesvol verwijderd!');
     }
 
-     
 
 }
