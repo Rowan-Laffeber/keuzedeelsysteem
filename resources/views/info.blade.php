@@ -98,11 +98,14 @@ $eindData = $delen->pluck('eind_inschrijving')->toArray();
 </div>
 
 {{-- Description --}}
-<section class="mb-4 p-4 border rounded bg-gray-50 text-gray-800 min-h-64 flex flex-col justify-between">
-    <div id="deel-beschrijving">{{ $delen[0]->description ?? '' }}</div>
+<section class="mb-4 p-4 border rounded bg-gray-50 text-gray-800 min-h-40 max-h-60 flex flex-col justify-between">
+    <!-- Scrollable content -->
+    <div id="deel-beschrijving" class="overflow-y-auto">
+        {{ $delen[0]->description ?? '' }}
+    </div>
 
-    <!-- Paragraph navigation with page number -->
-    <div id="paragraph-nav" class="mt-2 flex justify-between items-center">
+    <!-- Paragraph navigation at bottom -->
+    <div id="paragraph-nav" class="flex justify-between items-center mt-2">
         <button id="prev-paragraph" onclick="prevParagraph()"
                 class="px-3 py-1 rounded bg-gray-300 hover:bg-gray-400" disabled>
             Vorige

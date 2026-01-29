@@ -14,7 +14,6 @@
                 <a href="{{ route('upload') }}" class="text-gray-700 hover:text-blue-600 font-medium">Upload CSV</a>
                 <a href="{{ route('studentoverzicht') }}" class="text-gray-700 hover:text-blue-600 font-medium">Studentenoverzicht</a>
                 @endif
-                <a href="#" class="text-gray-700 hover:text-blue-600 font-medium">Contact</a>
             </div>
             <div class="flex items-center space-x-4">
                 @auth

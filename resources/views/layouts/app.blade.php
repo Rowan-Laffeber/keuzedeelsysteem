@@ -12,6 +12,8 @@
 <main class="max-w-7xl mx-auto p-6">
     @yield('content') {{-- Page-specific content goes here --}}
 </main>
+@include('partials.footer') {{-- Reusable footer --}}
+
 
 @yield('scripts') {{-- Page-specific scripts go here --}}
 
