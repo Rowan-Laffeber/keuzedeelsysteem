@@ -175,54 +175,62 @@ class InschrijvingController extends Controller
     public function updatePriorities(Request $request)
     {
         $user = auth()->user();
+    
         if ($user->role !== 'student') {
-            return redirect()->route('home')->with('error', 'Alleen studenten mogen prioriteiten aanpassen.');
+            return redirect()->route('home')
+                ->with('error', 'Alleen studenten mogen prioriteiten aanpassen.');
         }
-
+    
         $student = $user->student;
         $keuzedeelIds = $request->input('keuzedeel_ids', []);
         $priorities = $request->input('priorities', []);
-
+    
         // Validate inputs
         if (count($keuzedeelIds) !== count($priorities)) {
             return back()->with('error', 'Ongeldige data verzonden.');
         }
-
+    
         // Check for duplicate priorities
         $uniquePriorities = array_unique(array_filter($priorities));
         if (count($uniquePriorities) !== count(array_filter($priorities))) {
             return back()->with('error', 'Elke prioriteit mag maar één keer worden gekozen.');
         }
-
-        // Update priorities in a transaction
+    
         DB::transaction(function () use ($student, $keuzedeelIds, $priorities) {
             foreach ($keuzedeelIds as $index => $keuzedeelId) {
                 $priority = $priorities[$index];
-                
-                if (empty($priority)) continue;
-
+    
+                if (empty($priority)) {
+                    continue;
+                }
+    
+                // 🔒 afgerond inschrijvingen are excluded here
                 $inschrijving = $student->inschrijvingen()
                     ->where('keuzedeel_id', $keuzedeelId)
+                    ->where('status', '!=', 'afgerond')
                     ->first();
-
-                if ($inschrijving) {
-                    // Update priority and status based on new priority
-                    $inschrijving->priority = $priority;
-                    
-                    // Update status based on new priority
-                    if ($priority == 1) {
-                        $inschrijving->status = 'goedgekeurd';
-                    } else {
-                        $inschrijving->status = 'ingediend';
-                    }
-                    
-                    $inschrijving->save();
+    
+                if (! $inschrijving) {
+                    continue;
                 }
+    
+                // Update priority
+                $inschrijving->priority = $priority;
+    
+                // Update status based on priority
+                $inschrijving->status = ($priority == 1)
+                    ? 'goedgekeurd'
+                    : 'ingediend';
+    
+                $inschrijving->save();
             }
         });
-
+    
+        PriorityStatusService::recalc(studentId: $student->id);
+    
         return back()->with('success', 'Prioriteiten succesvol bijgewerkt!');
     }
+    
 
     /**
      * Delete an enrollment
