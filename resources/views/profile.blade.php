@@ -24,7 +24,15 @@
 
     <!-- Ingeschreven Keuzedelen -->
     <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold mb-4">Ingeschreven Keuzedelen ({{ $ingeschrevenKeuzedelen->count() }})</h2>
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Ingeschreven Keuzedelen ({{ $ingeschrevenKeuzedelen->count() }})</h2>
+            @if($ingeschrevenKeuzedelen->count() > 1)
+                <button onclick="openPriorityModal()" 
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-medium">
+                    Update Priorities
+                </button>
+            @endif
+        </div>
 
         @if($ingeschrevenKeuzedelen->count() > 0)
             <div class="space-y-4">
@@ -106,6 +114,124 @@
             </div>
         @endif
     </div>
+
+    {{-- Priority Update Modal --}}
+    <div id="priority-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded shadow-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <h2 class="text-xl font-bold mb-4">Update Priorities</h2>
+            <p class="text-gray-600 mb-4">Kies je nieuwe prioriteiten voor je ingeschreven keuzedelen.</p>
+
+            <form id="priority-form" method="POST" action="{{ route('priorities.update') }}">
+                @csrf
+                @method('PUT')
+                
+                <div class="space-y-4">
+                    @foreach($ingeschrevenKeuzedelen as $index => $keuzedeel)
+                        <div class="border rounded-lg p-4">
+                            <h3 class="font-semibold text-gray-900 mb-2">{{ $keuzedeel->title }}</h3>
+                            <p class="text-sm text-gray-600 mb-3">{{ Str::limit($keuzedeel->description, 100) }}</p>
+                            
+                            <input type="hidden" name="keuzedeel_ids[]" value="{{ $keuzedeel->id }}">
+                            
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Nieuwe Prioriteit:
+                            </label>
+                            <select name="priorities[]" required class="border rounded w-full px-3 py-2">
+                                <option value="">Kies prioriteit</option>
+                                <option value="1" {{ ($keuzedeel->pivot->priority ?? 999) == 1 ? 'selected' : '' }}>1e Keuze</option>
+                                <option value="2" {{ ($keuzedeel->pivot->priority ?? 999) == 2 ? 'selected' : '' }}>2e Keuze</option>
+                                <option value="3" {{ ($keuzedeel->pivot->priority ?? 999) == 3 ? 'selected' : '' }}>3e Keuze</option>
+                            </select>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <button type="button" onclick="closePriorityModalWithClear()"
+                            class="border px-4 py-2 rounded">Annuleren</button>
+                    <button type="submit"
+                            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
+                        Opslaan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openPriorityModal() {
+            document.getElementById('priority-modal').classList.remove('hidden');
+            document.getElementById('priority-modal').classList.add('flex');
+        }
+
+        function closePriorityModal() {
+            document.getElementById('priority-modal').classList.add('hidden');
+            document.getElementById('priority-modal').classList.remove('flex');
+        }
+
+        // Prevent duplicate priority selections with error message
+        document.getElementById('priority-form')?.addEventListener('change', function(e) {
+            if (e.target.name === 'priorities[]') {
+                const selectedPriority = e.target.value;
+                const allSelects = document.querySelectorAll('select[name="priorities[]"]');
+                
+                // Check if this priority is already selected elsewhere
+                let isDuplicate = false;
+                allSelects.forEach(select => {
+                    if (select !== e.target && select.value === selectedPriority) {
+                        isDuplicate = true;
+                    }
+                });
+
+                if (isDuplicate && selectedPriority !== '') {
+                    // Show error message
+                    const errorMsg = `Je hebt al prio ${selectedPriority} gekozen`;
+                    
+                    // Create or update error message
+                    let errorDiv = document.getElementById('priority-error');
+                    if (!errorDiv) {
+                        errorDiv = document.createElement('div');
+                        errorDiv.id = 'priority-error';
+                        errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4';
+                        e.target.closest('.space-y-4').parentNode.insertBefore(errorDiv, e.target.closest('.space-y-4'));
+                    }
+                    errorDiv.textContent = errorMsg;
+                    
+                    // Reset the selection
+                    e.target.value = '';
+                    return;
+                }
+
+                // Remove error message if it exists
+                const errorDiv = document.getElementById('priority-error');
+                if (errorDiv) {
+                    errorDiv.remove();
+                }
+                
+                // Disable/enable options to prevent duplicates
+                allSelects.forEach(select => {
+                    if (select !== e.target) {
+                        Array.from(select.options).forEach(option => {
+                            if (option.value === selectedPriority) {
+                                option.disabled = true;
+                            } else {
+                                option.disabled = false;
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        // Clear error when modal is closed
+        function closePriorityModalWithClear() {
+            const errorDiv = document.getElementById('priority-error');
+            if (errorDiv) {
+                errorDiv.remove();
+            }
+            closePriorityModal();
+        }
+    </script>
 </main>
 
 @endsection

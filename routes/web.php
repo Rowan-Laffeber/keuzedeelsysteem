@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
     // Student inscriptions
     Route::post('/inschrijven', [InschrijvingController::class, 'store'])->name('inschrijven.store');
     Route::delete('/uitschrijven', [InschrijvingController::class, 'destroy'])->name('uitschrijven.destroy');
+    Route::put('/priorities', [InschrijvingController::class, 'updatePriorities'])->name('priorities.update');
 
     // test routes
     Route::get('/homeCOPYFORCONCEPT', fn() => view('homeCOPYFORCONCEPT'));

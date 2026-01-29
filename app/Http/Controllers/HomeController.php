@@ -126,6 +126,9 @@ class HomeController extends Controller
         // Check enrollment status for each deel
         foreach ($delen as $deel) {
             $deel->is_ingeschreven = $student->inschrijvingen()
+                ->whereIn('status', ['goedgekeurd', 'ingediend'])
+                ->get();
+            $deel->is_ingeschreven = $student->inschrijvingen()
                 ->where('keuzedeel_id', $deel->id)
                 ->where('status', '!=', 'afgewezen')
                 ->exists();
