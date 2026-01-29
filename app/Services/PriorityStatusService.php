@@ -8,17 +8,23 @@ use Illuminate\Support\Facades\DB;
 
 class PriorityStatusService
 {
+    /**
+     * Recalculate priorities and statuses for a student or a keuzedeel.
+     * 'afgerond' status is considered final and will never be changed.
+     */
     public static function recalc(?Keuzedeel $keuzedeel = null, ?string $studentId = null)
     {
         $query = Inschrijving::with('keuzedeel');
 
+        // Filter by keuzedeel if provided
         if ($keuzedeel) {
             $ids = $keuzedeel->parent_id
-                ? [$keuzedeel->id]
-                : array_merge([$keuzedeel->id], $keuzedeel->delen()->pluck('id')->toArray());
+                ? [$keuzedeel->id] // subdeel only
+                : array_merge([$keuzedeel->id], $keuzedeel->delen()->pluck('id')->toArray()); // parent + subdelen
             $query->whereIn('keuzedeel_id', $ids);
         }
 
+        // Filter by student if provided
         if ($studentId) {
             $query->where('student_id', $studentId);
         }
@@ -26,29 +32,39 @@ class PriorityStatusService
         $inschrijvingen = $query->get()->groupBy('student_id');
 
         DB::transaction(function () use ($inschrijvingen) {
+
             foreach ($inschrijvingen as $studentId => $studentInschrijvingen) {
 
-                // Reset statuses based on actief
+                // --- 1. Reset statuses based on keuzedeel actief, but never overwrite 'afgerond' ---
                 foreach ($studentInschrijvingen as $inschrijving) {
-                    $inschrijving->status = $inschrijving->keuzedeel->actief ? 'ingediend' : 'afgewezen';
-                    $inschrijving->save();
+                    if ($inschrijving->status !== 'afgerond') {
+                        $inschrijving->status = $inschrijving->keuzedeel->actief ? 'ingediend' : 'afgewezen';
+                        $inschrijving->save();
+                    }
                 }
 
                 $approvedThisStudent = false;
 
+                // --- 2. Process priorities 1, 2, 3 ---
                 foreach ([1, 2, 3] as $priority) {
                     $prioInschrijvingen = $studentInschrijvingen->where('priority', $priority);
 
                     foreach ($prioInschrijvingen as $inschrijving) {
                         $deel = $inschrijving->keuzedeel;
 
+                        // Skip any status updates if 'afgerond'
+                        if ($inschrijving->status === 'afgerond') {
+                            continue;
+                        }
+
+                        // --- 2a. Check if keuzedeel is actief ---
                         if (!$deel->actief) {
                             $inschrijving->status = 'afgewezen';
                             $inschrijving->save();
                             continue;
                         }
 
-                        // Determine relevant keuzedeel IDs (for parent grouping)
+                        // --- 2b. Determine relevant keuzedeel IDs (parent grouping) ---
                         if ($deel->max_type_parent === 'parent' && $deel->parent_id) {
                             $parentId = $deel->parent_id;
                             $relatedIds = Keuzedeel::where('parent_id', $parentId)->pluck('id')->toArray();
@@ -57,7 +73,7 @@ class PriorityStatusService
                             $relatedIds = [$deel->id];
                         }
 
-                        // ✅ Check if max approved reached for this keuzedeel/group
+                        // --- 2c. Check if max approved reached ---
                         $currentApproved = Inschrijving::whereIn('keuzedeel_id', $relatedIds)
                             ->where('status', 'goedgekeurd')
                             ->count();
@@ -68,7 +84,7 @@ class PriorityStatusService
                             continue;
                         }
 
-                        // Approve if priority 1 or no higher priority approved
+                        // --- 2d. Approve based on priority ---
                         if ($priority === 1 || !$approvedThisStudent) {
                             $inschrijving->status = 'goedgekeurd';
                             $approvedThisStudent = true;

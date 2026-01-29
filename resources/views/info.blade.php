@@ -145,25 +145,56 @@ $eindData = $delen->pluck('eind_inschrijving')->toArray();
         @endphp
 
         @if($inschrijving)
-            <div class="bg-{{ $inschrijving->status === 'afgewezen' ? 'red' : 'green' }}-100 
-                        border border-{{ $inschrijving->status === 'afgewezen' ? 'red' : 'green' }}-400 
-                        text-{{ $inschrijving->status === 'afgewezen' ? 'red' : 'green' }}-700 
-                        px-4 py-3 rounded mb-2">
-                @if($inschrijving->status === 'afgewezen')
-                    Je inschrijving is afgewezen.
-                @else
-                    Je bent al ingeschreven voor dit keuzedeel.
-                @endif
-            </div>
+        @php
+            $statusColor = match($inschrijving->status) {
+                'afgerond' => 'purple',
+                'afgewezen' => 'red',
+                'goedgekeurd' => 'green',
+                'ingediend' => 'yellow',
+                default => 'gray'
+            };
+        @endphp
 
-            <form method="POST" action="{{ route('uitschrijven.destroy') }}">
-                @csrf
-                <input type="hidden" name="keuzedeel_id" value="{{ $deel->id }}">
-                <button type="submit"
-                        class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded">
+        <div class="bg-{{ $statusColor }}-100 
+                    border border-{{ $statusColor }}-400 
+                    text-{{ $statusColor }}-700 
+                    px-4 py-3 rounded mb-2 flex justify-between items-center">
+            <span>
+                @switch($inschrijving->status)
+                    @case('afgerond')
+                        Je hebt dit keuzedeel afgerond. 
+                    @break
+                    @case('afgewezen')
+                        Je inschrijving is afgewezen. 
+                    @break
+                    @case('goedgekeurd')
+                        Je inschrijving is goedgekeurd. 
+                    @break
+                    @case('ingediend')
+                        Je inschrijving is ingediend. 
+                    @break
+                    @default
+                        Status onbekend
+                @endswitch
+            </span>
+
+            @if($inschrijving->status !== 'afgerond')
+                <form method="POST" action="{{ route('uitschrijven.destroy') }}">
+                    @csrf
+                    <input type="hidden" name="keuzedeel_id" value="{{ $deel->id }}">
+                    <button type="submit"
+                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded ml-2">
+                        Schrijf uit
+                    </button>
+                </form>
+            @else
+                <button type="button"
+                        class="bg-gray-400 text-white px-4 py-1 rounded ml-2 cursor-not-allowed"
+                        title="Afgeronde inschrijvingen kunnen niet worden verwijderd">
                     Schrijf uit
                 </button>
-            </form>
+            @endif
+        </div>
 
         @else
             <div class="flex items-center gap-2">

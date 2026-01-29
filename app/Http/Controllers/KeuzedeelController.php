@@ -64,7 +64,7 @@ class KeuzedeelController extends Controller
     public function store(Request $request)
     {
         $this->authorizeAdmin();
-
+    
         $request->validate([
             'id' => 'required|string|unique:keuzedelen,id',
             'title' => 'required|string|max:255',
@@ -74,19 +74,19 @@ class KeuzedeelController extends Controller
             'start_inschrijving' => 'required|date',
             'eind_inschrijving' => 'required|date|after:start_inschrijving',
         ]);
-
+    
         $parentMaxType = $request->parent_max_type ?? 'subdeel';
-
+    
+        // --- Handle parent/subdeel logic ---
         if ($request->parent_id) {
-            // Use old creation logic for subdeel creation under existing parent
             $parent = Keuzedeel::find($request->parent_id);
             $title = $parent->title;
-
+    
             $parentMaxType = $parent->parent_max_type ?? 'subdeel';
             if (!in_array($parentMaxType, ['subdeel', 'parent'])) {
                 $parentMaxType = 'subdeel';
             }
-
+    
             if ($parentMaxType === 'subdeel') {
                 $subdeelMax = 30;
                 $parent->maximum_studenten = ($parent->maximum_studenten ?? 0) + 30;
@@ -98,11 +98,9 @@ class KeuzedeelController extends Controller
                     $parent->save();
                 }
             }
-
         } else {
-            // Create new parent
             $subdeelMax = $parentMaxType === 'subdeel' ? 30 : null;
-
+    
             $parent = Keuzedeel::create([
                 'id' => (string) Str::uuid(),
                 'title' => $request->title,
@@ -114,11 +112,12 @@ class KeuzedeelController extends Controller
                 'start_inschrijving' => $request->start_inschrijving,
                 'eind_inschrijving' => $request->eind_inschrijving,
             ]);
+    
             $title = $request->title;
         }
-
-        // Create the actual subdeel
-        Keuzedeel::create([
+    
+        // --- Create the subdeel ---
+        $keuzedeel = Keuzedeel::create([
             'id' => $request->id,
             'title' => $title,
             'description' => $request->description,
@@ -131,9 +130,78 @@ class KeuzedeelController extends Controller
             'start_inschrijving' => $request->start_inschrijving,
             'eind_inschrijving' => $request->eind_inschrijving,
         ]);
+    
+        // --- Scan CSVs and create Inschrijvingen only for this keuzedeel ---
+        $uploadFolder = storage_path('app/csv_uploads');
+        $created = 0;
+    
+        if (is_dir($uploadFolder)) {
+            $files = glob($uploadFolder . '/*.csv');
+    
+            foreach ($files as $csvFile) {
+                $lines = file($csvFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    
+                if (!$lines) continue;
+    
+                $delimiter = strpos($lines[0], ';') !== false ? ';' : ',';
+    
+                $foundExaminerend = false;
+                $headerRow = null;
+    
+                foreach ($lines as $lineIndex => $line) {
+                    $row = str_getcsv($line, $delimiter);
+                    $row = array_map('trim', $row);
+    
+                    // Find the header row containing keuzedeel IDs
+                    if (in_array('Examinerend', $row)) {
+                        $foundExaminerend = true;
+                        continue;
+                    }
+    
+                    if ($foundExaminerend && !$headerRow) {
+                        $headerRow = $row;
+                        continue;
+                    }
+    
+                    if ($headerRow) {
+                        // Column of the keuzedeel we just created
+                        $keuzedeelCol = array_search($keuzedeel->id, $headerRow);
+                        if ($keuzedeelCol === false) break;
+    
+                        $studentnummer = $row[2] ?? null; // student number is column 2
+                        if (!$studentnummer) continue;
+    
+                        $cellValue = $row[$keuzedeelCol] ?? null;
+    
+                        if ($cellValue !== null && $cellValue !== '') {
+                            $student = \App\Models\Student::where('studentnummer', $studentnummer)->first();
+                            if ($student && !Inschrijving::where('student_id', $student->id)
+                                ->where('keuzedeel_id', $keuzedeel->id)
+                                ->exists()
+                            ) {
+                                Inschrijving::create([
+                                    'id' => (string) Str::uuid(),
+                                    'student_id' => $student->id,
+                                    'keuzedeel_id' => $keuzedeel->id,
+                                    'status' => 'afgerond', // automatic
+                                    'inschrijfdatum' => now(),
+                                    'priority' => 'n.v.t.'
+                                ]);
+                                $created++;
 
-        return redirect()->route('home')->with('success', 'Keuzedeel succesvol aangemaakt!');
+                                    PriorityStatusService::recalc(studentId: $student->id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    
+        return redirect()->route('home')
+            ->with('success', "Keuzedeel succesvol aangemaakt! ($created inschrijvingen toegevoegd)");
     }
+    
+    
 
     public function edit(Keuzedeel $keuzedeel)
     {

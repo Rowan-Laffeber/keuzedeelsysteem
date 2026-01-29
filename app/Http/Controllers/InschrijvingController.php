@@ -172,23 +172,35 @@ class InschrijvingController extends Controller
      * Delete an enrollment
      */
     
-     public function destroy(Request $request)
-     {
-         $student = auth()->user()->student;
-         $keuzedeelId = $request->input('keuzedeel_id');
-     
-         $inschrijving = $student->inschrijvingen()->where('keuzedeel_id', $keuzedeelId)->first();
-         if (!$inschrijving) {
-             return back()->with('error', 'Geen inschrijving gevonden om te verwijderen.');
-         }
-     
-         $inschrijving->delete();
-     
-         // Recalculate statuses for ALL affected students
-         PriorityStatusService::recalc(Keuzedeel::find($keuzedeelId));
-     
-         return back()->with('success', 'Succesvol uitgeschreven!');
-     }
+     /**
+ * Delete an enrollment
+ */
+    public function destroy(Request $request)
+    {
+        $student = auth()->user()->student;
+        $keuzedeelId = $request->input('keuzedeel_id');
+
+        $inschrijving = $student->inschrijvingen()
+            ->where('keuzedeel_id', $keuzedeelId)
+            ->first();
+
+        if (!$inschrijving) {
+            return back()->with('error', 'Geen inschrijving gevonden om te verwijderen.');
+        }
+
+        // Block deletion if status is 'afgerond'
+        if ($inschrijving->status === 'afgerond') {
+            return back()->with('error', 'Je kunt deze inschrijving niet verwijderen omdat de status afgerond is.');
+        }
+
+        $inschrijving->delete();
+
+        // Recalculate statuses for affected students (only for this keuzedeel)
+        PriorityStatusService::recalc(Keuzedeel::find($keuzedeelId));
+
+        return back()->with('success', 'Succesvol uitgeschreven!');
+    }
+
      
 
 }
