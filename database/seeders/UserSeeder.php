@@ -44,7 +44,7 @@ class UserSeeder extends Seeder
         );
 
         // 🔹 Add student user
-        $studentUser = User::firstOrCreate(
+           $studentUser = User::firstOrCreate(
             ['email' => '1234567@student.school.nl'],
             [
                 'id' => (string) Str::uuid(),

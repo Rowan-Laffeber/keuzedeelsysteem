@@ -135,6 +135,19 @@ class HomeController extends Controller
             
             // Refresh enrollment count to ensure fresh data
             $deel->refreshEnrollmentCount();
+            
+            // Check if keuzedeel is completely full for students
+            $deel->can_enroll = true;
+            if ($deel->maximum_studenten > 0) {
+                $currentEnrollments = \App\Models\Inschrijving::where('keuzedeel_id', $deel->id)
+                    ->whereIn('status', ['goedgekeurd', 'ingediend'])
+                    ->count();
+                
+                if ($currentEnrollments >= $deel->maximum_studenten) {
+                    $deel->can_enroll = false;
+                    $deel->vol_error = 'Helaas, dit keuzedeel staat vol.';
+                }
+            }
         }
 
         return view('info', compact('keuzedeel', 'delen'));

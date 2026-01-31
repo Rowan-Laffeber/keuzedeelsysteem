@@ -35,6 +35,7 @@ $ids = $delen->pluck('id')->toArray();
 $beschrijvingen = $delen->map(fn($d) => $d->description ?? '')->toArray();
 $actief = $delen->pluck('actief')->toArray();
 $aantallen = $delen->pluck('ingeschreven_count')->toArray();
+$volErrors = $delen->pluck('vol_error')->toArray();
 $startData = $delen->pluck('start_inschrijving')->toArray();
 $eindData = $delen->pluck('eind_inschrijving')->toArray();
 @endphp
@@ -201,12 +202,14 @@ $eindData = $delen->pluck('eind_inschrijving')->toArray();
             <div class="flex items-center gap-2">
                 <button
                     onclick="openInschrijvingModal('{{ $deel->id }}')"
-                    class="px-6 py-2 rounded text-white {{ $canEnroll ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed' }}"
-                    {{ $canEnroll ? '' : 'disabled' }}>
+                    class="px-6 py-2 rounded text-white {{ $deel->can_enroll ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed' }}"
+                    {{ $deel->can_enroll ? '' : 'disabled' }}>
                     Schrijf in
                 </button>
-                @if(!$canEnroll)
-                    <span class="text-gray-600 italic text-sm">{{ $reason }}</span>
+                @if(!$deel->can_enroll)
+                    <span class="text-gray-600 italic text-sm">
+                        {{ $deel->vol_error ?? 'Niet beschikbaar' }}
+                    </span>
                 @endif
             </div>
         @endif
@@ -288,6 +291,7 @@ const ids = @json($ids);
 const beschrijvingen = @json($beschrijvingen);
 const actief = @json($actief);
 const aantallen = @json($aantallen);
+const volErrors = @json($volErrors);
 const startData = @json($startData);
 const eindData = @json($eindData);
 
@@ -390,6 +394,15 @@ document.querySelectorAll('.deel-btn').forEach(btn =>
 
 const initialId = new URLSearchParams(window.location.search).get('id') ?? ids[0];
 if(initialId) selectDeelById(initialId);
+
+function checkCapacityAndOpenModal(id, volError) {
+    // Check if there's a capacity error
+    if (volError && volError.trim() !== '') {
+        alert(volError);
+        return;
+    }
+    openInschrijvingModal(id);
+}
 
 function openInschrijvingModal(id){
     document.getElementById('inschrijving-keuzedeel-id').value = id;
