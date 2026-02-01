@@ -81,11 +81,19 @@ $eindData = $delen->pluck('eind_inschrijving')->toArray();
 
         <div class="flex gap-3 items-stretch">
             @if(auth()->user()->role === 'admin')
+                <button type="button" onclick="openAfrondenModal()"
+                class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-semibold">
+                Markeer als afgerond
+            </button>
+
+            @endif
+            @if(auth()->user()->role === 'admin')
                 <button onclick="openActiefModal()"
                         class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded font-semibold">
                     Actief status aanpassen
                 </button>
             @endif
+            
 
             <div id="actief-status-box"
                  class="px-4 py-2 rounded text-white font-semibold flex items-center
@@ -286,6 +294,54 @@ $eindData = $delen->pluck('eind_inschrijving')->toArray();
     </div>
 </div>
 @endif
+@if(auth()->user()->role === 'admin')
+<div id="afronden-modal"
+     class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded shadow-lg p-6 w-96">
+        <h2 class="text-xl font-bold mb-4">Bevestig afronden</h2>
+        <p class="mb-4">
+            Weet je zeker dat je dit keuzedeel als afgerond wilt markeren?<br>
+            Hierdoor zullen de inschrijvingen de volgende veranderingen ondergaan:
+        </p>
+
+        <ul class="list-disc pl-6 space-y-2 pb-4">
+            <li>
+                <span class="px-2 py-1 rounded bg-green-200 text-green-800 font-semibold">Goedgekeurd</span>
+                → 
+                <span class="px-2 py-1 rounded bg-blue-200 text-blue-800 font-semibold">Afgerond</span>
+            </li>
+            <li>
+                <span class="px-2 py-1 rounded bg-yellow-200 text-yellow-800 font-semibold">Ingediend</span>
+                → Verwijderd
+            </li>
+            <li>
+                <span class="px-2 py-1 rounded bg-red-200 text-red-800 font-semibold">Afgewezen</span>
+                → Verwijderd
+            </li>
+            <li>
+                <span class="px-2 py-1 rounded bg-blue-200 text-blue-800 font-semibold">Afgerond</span>
+                → Blijft
+                <span class="px-2 py-1 rounded bg-blue-200 text-blue-800 font-semibold">Afgerond</span>
+            </li>
+        </ul>
+
+
+
+        <form method="POST" id="afronden-form">
+            @csrf
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeAfrondenModal()"
+                        class="border px-4 py-2 rounded">Annuleren</button>
+                <button type="submit"
+                        class="bg-purple-600 text-white px-4 py-2 rounded">
+                    Bevestigen
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
 
 <script>
 const studentActivePriorities = @json($activeInschrijvingen);
@@ -435,6 +491,22 @@ function openActiefModal(){
 function closeActiefModal(){
     document.getElementById('actief-modal').classList.add('hidden');
 }
+
+function openAfrondenModal() {
+    const modal = document.getElementById('afronden-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    const afrondenForm = document.getElementById('afronden-form');
+    const currentDeelId = document.querySelector('.deel-form:not([style*="display: none"])').dataset.id;
+    afrondenForm.action = `/keuzedeel/${currentDeelId}/afronden`; // set the correct route
+}
+
+function closeAfrondenModal() {
+    const modal = document.getElementById('afronden-modal');
+    modal.classList.add('hidden');
+}
+
 </script>
 
 @endsection

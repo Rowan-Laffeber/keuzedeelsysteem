@@ -14,7 +14,7 @@ class KeuzedeelController extends Controller
     public function create()
     {
         $this->authorizeAdmin();
-
+        
         $parents = Keuzedeel::whereNull('parent_id')->get();
         $keuzedelen = [];
         $seenIds = []; // track IDs across all files
@@ -298,4 +298,22 @@ class KeuzedeelController extends Controller
             abort(403, 'Alleen admins mogen dit doen.');
         }
     }
+
+    public function afrondenInschrijvingen(Keuzedeel $keuzedeel)
+{
+    $this->authorizeAdmin();
+    // Rond alle goedgekeurde af
+    $keuzedeel->inschrijvingen()
+        ->where('status', 'goedgekeurd')
+        ->update(['status' => 'afgerond']);
+
+    // Verwijder alle andere inschrijvingen, maar niet die al afgerond zijn
+    $keuzedeel->inschrijvingen()
+        ->whereNotIn('status', ['goedgekeurd', 'afgerond'])
+        ->delete();
+
+    return redirect()->back()->with('success', 'Inschrijvingen afgerond en overige verwijderd.');
+}
+
+
 }

@@ -52,6 +52,8 @@ Route::middleware('auth')->group(function () {
         Route::put('/keuzedeel/{keuzedeel}', [KeuzedeelController::class, 'update'])->name('keuzedeel.update');
         Route::post('keuzedeel/{keuzedeel}/toggle-actief', [KeuzedeelController::class, 'toggleActief'])->name('keuzedeel.toggleActief');
         Route::delete('/keuzedeel/{keuzedeel}', [KeuzedeelController::class, 'destroy'])->name('keuzedeel.destroy');
+        Route::post('/keuzedeel/{keuzedeel}/afronden', [KeuzedeelController::class, 'afrondenInschrijvingen'])->name('keuzedeel.afronden');
+
 
         Route::get('/studentoverzicht', [StudentController::class, 'index'])->name('studentoverzicht');
         Route::delete('/student/{student}', [StudentController::class, 'destroy'])->name('student.destroy');

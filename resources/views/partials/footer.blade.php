@@ -15,9 +15,11 @@
             </div>
 
             <!-- Right: Copyright -->
-            <div class="text-gray-600 text-sm text-center md:text-right">
-                &copy; {{ date('Y') }} YTG Inc. All rights reserved.
+            <div class="text-gray-600 text-sm text-center md:text-right space-y-1">
+                <div>&copy; {{ date('Y') }} YTG Inc. All rights reserved.</div>
+                <div>Partner of Zadkine and Techniek College Rotterdam</div>
             </div>
+
 
         </div>
     </div>
