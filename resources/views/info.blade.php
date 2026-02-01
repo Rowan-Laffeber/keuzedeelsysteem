@@ -43,6 +43,8 @@ $eindData = $delen->pluck('eind_inschrijving')->toArray();
     {{ $keuzedeel->title }} - <span id="huidig-deel-titel">{{ $delen[0]->id ?? '' }}</span>
 </h1>
 
+
+
 <div class="flex items-start gap-6 mb-6">
     {{-- Deel buttons --}}
     <div class="flex gap-6 flex-wrap">
@@ -53,15 +55,21 @@ $eindData = $delen->pluck('eind_inschrijving')->toArray();
                 class="w-44 rounded shadow {{ $status->color() }} flex flex-col items-center p-2 deel-btn {{ $index !== 0 ? 'opacity-60' : 'opacity-100' }}"
                 data-id="{{ $deel->id }}"
             >
-                <div class="text-center font-semibold mb-2 {{ $status->textColor() }}">
+                {{-- Badge: status text met achtergrondkleur --}}
+                <div class="text-center font-semibold mb-2 px-2 py-1 rounded-full text-sm {{ $status->color() }} text-gray-900">
                     {{ $status->text() }}
                 </div>
+
+                {{-- Tile content --}}
                 <div class="bg-white p-4 rounded w-full text-center font-bold text-lg">
                     {{ $deel->id }}
                 </div>
             </button>
         @endforeach
     </div>
+
+
+
 
     {{-- Info boxes --}}
     <div class="flex flex-col gap-3 ml-auto items-end">

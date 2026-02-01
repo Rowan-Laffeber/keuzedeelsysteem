@@ -97,5 +97,75 @@ class PriorityStatusService
                 }
             }
         });
+        // --- 3. Promote students to highest possible priority (single pass, safe) ---
+        $students = Inschrijving::with('keuzedeel')
+        ->whereNotIn('status', ['afgewezen', 'afgerond'])
+        ->get()
+        ->groupBy('student_id');
+
+        DB::transaction(function () use ($students) {
+
+        foreach ($students as $studentInschrijvingen) {
+
+            // huidige goedgekeurde (max 1)
+            $currentApproved = $studentInschrijvingen
+                ->where('status', 'goedgekeurd')
+                ->sortBy('priority')
+                ->first();
+
+            // mogelijke kandidaten (ingediend, actief, plek)
+            $candidates = $studentInschrijvingen
+                ->where('status', 'ingediend')
+                ->sortBy('priority');
+
+            foreach ($candidates as $candidate) {
+
+                $deel = $candidate->keuzedeel;
+
+                // check actief
+                if (!$deel->actief) {
+                    continue;
+                }
+
+                // bepaal relevante IDs (parent-logica)
+                if ($deel->parent_max_type === 'parent' && $deel->parent_id) {
+                    $relatedIds = Keuzedeel::where('parent_id', $deel->parent_id)
+                        ->pluck('id')
+                        ->push($deel->parent_id)
+                        ->toArray();
+                } else {
+                    $relatedIds = [$deel->id];
+                }
+
+                // check plek
+                $approvedCount = Inschrijving::whereIn('keuzedeel_id', $relatedIds)
+                    ->where('status', 'goedgekeurd')
+                    ->count();
+
+                if ($deel->maximum_studenten !== null && $approvedCount >= $deel->maximum_studenten) {
+                    continue;
+                }
+
+                // geen huidige goedgekeurde → promote
+                if (!$currentApproved) {
+                    $candidate->status = 'goedgekeurd';
+                    $candidate->save();
+                    break;
+                }
+
+                // kandidaat heeft hogere prioriteit (lager getal)
+                if ($candidate->priority < $currentApproved->priority) {
+                    $currentApproved->status = 'ingediend';
+                    $currentApproved->save();
+
+                    $candidate->status = 'goedgekeurd';
+                    $candidate->save();
+                }
+
+                break; // max 1 promotie per student
+            }
+        }
+    });
+
     }
 }

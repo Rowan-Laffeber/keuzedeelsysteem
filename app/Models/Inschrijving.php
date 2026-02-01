@@ -101,4 +101,25 @@ class Inschrijving extends Model
         $this->status = 'afgewezen';
         $this->save();
     }
+    public function inschrijvingen()
+    {
+        return $this->hasMany(Inschrijving::class);
+    }
+    public function goedgekeurdeInschrijvingenCount(): int
+    {
+        return $this->inschrijvingen()
+            ->where('status', 'goedgekeurd')
+            ->count();
+    }
+    public function totaalGoedgekeurdVanSubdelen(): int
+    {
+        return Inschrijving::whereHas('keuzedeel', function ($q) {
+                $q->where('parent_id', $this->id);
+            })
+            ->where('status', 'goedgekeurd')
+            ->count();
+    }
+
+
 }
+

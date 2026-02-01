@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Keuzedeel;
 use App\Models\Inschrijving;
+use app\Support\StatusHelper;
 
 class HomeController extends Controller
 {

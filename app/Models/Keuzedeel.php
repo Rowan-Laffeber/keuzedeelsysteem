@@ -40,12 +40,12 @@ class Keuzedeel extends Model
      */
     public function getStatusHelperAttribute(): StatusHelper
     {
-        return new StatusHelper(
-            $this->actief ? 'nog_plek' : 'afgerond',
-            $this->maximum_studenten ?? 0,
-            $this->ingeschreven_count ?? 0
-        );
+        return new \App\Support\StatusHelper($this);
     }
+
+
+
+
 
     /**
      * Get actual enrollment count from inschrijvingen table
@@ -123,11 +123,23 @@ class Keuzedeel extends Model
 
         $count = $this->inschrijvingen()
             ->where('priority', $priority)
-            ->where('status', 'goedgekeurd')
             ->count();
 
         return $count >= $max;
     }
+
+    public function totaalGoedgekeurdVanSubdelen(): int
+    {
+        return $this->delen()->with('inschrijvingen')
+            ->get()
+            ->sum(fn($deel) => $deel->goedgekeurdeInschrijvingenCount());
+    }
+
+    public function goedgekeurdeInschrijvingenCount(): int
+    {
+        return $this->inschrijvingen()->where('status', 'goedgekeurd')->count();
+    }
+
 }
 
     
